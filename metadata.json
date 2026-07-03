@@ -1,0 +1,6 @@
+{
+  "name": "Start-Up Summit Botswana 2026",
+  "description": "Landing page for the Start-Up Summit Botswana 2026 event, featuring registration and QR code ticket generation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
