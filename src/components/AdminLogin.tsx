@@ -107,7 +107,7 @@ export function AdminLogin({ onLoginSuccess, onBack }: AdminLoginProps) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@startupsummit.bw"
+                  placeholder="admin@startupsummit.co.bw"
                   className="w-full bg-primary/60 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder-white/30 text-sm focus:outline-none focus:border-accent/50 transition-all"
                   required
                 />

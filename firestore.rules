@@ -11,7 +11,9 @@ service cloud.firestore {
       allow read, delete: if request.auth != null && (
         request.auth.token.email == "quintonbileon@gmail.com" ||
         request.auth.token.email == "admin@startupsummit.bw" ||
-        request.auth.uid == "xeEALxqzQtYJOD4fu05SDv15zts2"
+        request.auth.token.email == "admin@startupsummit.co.bw" ||
+        request.auth.uid == "xeEALxqzQtYJOD4fu05SDv15zts2" ||
+        request.auth.uid == "tMHVaqQOo1TseOa8i6eiXMaGnm32"
       );
     }
   }

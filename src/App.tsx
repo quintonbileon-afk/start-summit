@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { motion, useScroll, useSpring } from 'motion/react';
 import { Navigation } from './components/Navigation';
 import { Hero } from './components/Hero';
 import { About } from './components/About';
@@ -22,6 +23,14 @@ export default function App() {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
   const [currentView, setCurrentView] = useState<'landing' | 'admin'>('landing');
+
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001
+  });
+
 
   // Handle Hash routing for quick bookmarking/access to dashboard
   useEffect(() => {
@@ -74,6 +83,10 @@ export default function App() {
 
   return (
     <div className="font-sans antialiased bg-primary text-white selection:bg-accent selection:text-primary">
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-1 bg-accent origin-left z-[100]"
+        style={{ scaleX }}
+      />
       <Navigation onNavigateToAdmin={navigateToAdmin} currentView={currentView} onNavigateToLanding={navigateToLanding} />
       
       <main>
