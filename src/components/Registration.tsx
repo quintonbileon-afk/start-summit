@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
+import { Loader2 } from 'lucide-react';
 import { RegistrationData } from '../types';
+import { db, collection, addDoc, serverTimestamp, handleFirestoreError, OperationType } from '../firebase';
 
 interface RegistrationProps {
   onSuccess: (data: RegistrationData) => void;
@@ -29,6 +31,8 @@ export function Registration({ onSuccess }: RegistrationProps) {
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof RegistrationData, string>>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const validate = () => {
     const newErrors: Partial<Record<keyof RegistrationData, string>> = {};
@@ -58,10 +62,38 @@ export function Registration({ onSuccess }: RegistrationProps) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
-      onSuccess(formData);
+      setIsSubmitting(true);
+      setSubmitError(null);
+      try {
+        await addDoc(collection(db, 'registrations'), {
+          ...formData,
+          submittedAt: serverTimestamp()
+        });
+
+        // Trigger notification email dispatch
+        try {
+          await fetch('/api/send-registration-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData),
+          });
+        } catch (emailError) {
+          console.warn('Silent email failure:', emailError);
+        }
+
+        onSuccess(formData);
+      } catch (error) {
+        console.error('Registration save error:', error);
+        setSubmitError('Failed to save registration to the database. Please check your internet connection and try again.');
+        handleFirestoreError(error, OperationType.CREATE, 'registrations');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -70,10 +102,10 @@ export function Registration({ onSuccess }: RegistrationProps) {
       <div className="absolute inset-0 bg-primary-light/50 skew-y-3 origin-bottom-left -z-10 transform translate-y-12"></div>
       <div className="max-w-4xl mx-auto px-6">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">Secure Your Spot</h2>
@@ -470,12 +502,26 @@ export function Registration({ onSuccess }: RegistrationProps) {
               </div>
             </div>
 
+            {submitError && (
+              <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold">
+                {submitError}
+              </div>
+            )}
+
             <div className="pt-6">
               <button
                 type="submit"
-                className="w-full bg-secondary hover:bg-secondary/90 text-primary font-bold text-lg py-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-secondary/20"
+                disabled={isSubmitting}
+                className="w-full bg-yellow hover:bg-yellow/90 disabled:opacity-75 disabled:cursor-not-allowed text-primary font-bold text-lg py-4 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-yellow/20 flex items-center justify-center gap-2"
               >
-                Register Now & Get Ticket
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving Registration...
+                  </>
+                ) : (
+                  'Register Now & Get Ticket'
+                )}
               </button>
             </div>
           </form>

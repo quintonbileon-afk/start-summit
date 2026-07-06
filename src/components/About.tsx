@@ -9,7 +9,7 @@ export function About() {
       desc: "Bringing together entrepreneurs, investors, corporates, and policymakers."
     },
     {
-      icon: <TrendingUp className="w-8 h-8 text-secondary" />,
+      icon: <TrendingUp className="w-8 h-8 text-yellow" />,
       title: "Economic Diversification",
       desc: "Repositioning the economy towards private sector-led growth."
     },
@@ -25,10 +25,10 @@ export function About() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           <motion.div 
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
             className="text-justify"
           >
             <h2 className="text-4xl md:text-5xl font-display font-bold mb-6 leading-tight">
@@ -36,7 +36,7 @@ export function About() {
               <span className="text-accent">Startup Ecosystem</span> <br />
               from Ground Up.
             </h2>
-            <div className="w-20 h-2 bg-secondary mb-8 rounded-full"></div>
+            <div className="w-20 h-2 bg-yellow mb-8 rounded-full"></div>
             <p className="text-lg text-gray-600 mb-6 leading-relaxed">
               Botswana is undergoing a critical economic transition characterized by rising youth unemployment, slow private sector growth and an urgent need for economic diversification.
             </p>

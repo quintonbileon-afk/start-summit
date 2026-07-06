@@ -66,7 +66,7 @@ export function Hero() {
         </video>
         <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/70 to-transparent"></div>
         <div className="absolute top-20 left-10 w-72 h-72 bg-accent/20 rounded-full blur-[100px] mix-blend-screen"></div>
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-secondary/10 rounded-full blur-[120px] mix-blend-screen"></div>
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-yellow/10 rounded-full blur-[120px] mix-blend-screen"></div>
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 flex flex-col items-center text-center">
@@ -84,9 +84,9 @@ export function Hero() {
             {typewriterIndex > 19 && <br className="hidden md:block" />}
             <span>{renderTypewriter(" the answer to ", 19, typewriterIndex)}</span>
             {typewriterIndex > 34 && <br className="md:hidden" />}
-            <span className="text-secondary relative inline-block">
+            <span className="text-yellow relative inline-block">
               {renderTypewriter("Botswana's", 34, typewriterIndex)}
-              {typewriterIndex >= 44 && <span className="absolute -bottom-2 left-0 w-full h-1 bg-secondary/50 rounded-full"></span>}
+              {typewriterIndex >= 44 && <span className="absolute -bottom-2 left-0 w-full h-1 bg-yellow/50 rounded-full"></span>}
             </span>
             <span>{renderTypewriter(" unemployment", 44, typewriterIndex)}</span>
             {typewriterIndex > 57 ? (
@@ -112,7 +112,7 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.6 }}
           className="flex flex-col sm:flex-row items-center gap-6 mb-12"
         >
-          <div className="flex items-center gap-3 text-secondary font-semibold text-lg bg-white/5 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-sm">
+          <div className="flex items-center gap-3 text-yellow font-semibold text-lg bg-white/5 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-sm">
             <CalendarDays className="w-6 h-6" />
             AUG 7, 2026
           </div>

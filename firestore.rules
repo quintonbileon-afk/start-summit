@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /registrations/{document} {
+      allow create: if true;
+      allow read, delete: if request.auth != null && (
+        request.auth.token.email == "quintonbileon@gmail.com" ||
+        request.auth.token.email == "admin@startupsummit.bw" ||
+        request.auth.uid == "xeEALxqzQtYJOD4fu05SDv15zts2"
+      );
+    }
+  }
+}

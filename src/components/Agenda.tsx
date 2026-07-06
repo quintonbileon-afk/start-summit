@@ -12,17 +12,17 @@ export function Agenda() {
   ];
 
   return (
-    <section id="agenda" className="py-24 bg-white text-primary">
+    <section id="agenda" className="py-16 bg-white text-primary">
       <div className="max-w-4xl mx-auto px-6">
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center mb-12"
         >
           <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">Summit Agenda</h2>
-          <div className="w-20 h-2 bg-secondary mx-auto rounded-full"></div>
+          <div className="w-20 h-2 bg-yellow mx-auto rounded-full"></div>
         </motion.div>
 
         <div className="relative border-l-4 border-gray-100 ml-4 md:ml-0">
@@ -33,15 +33,17 @@ export function Agenda() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.5, delay: idx * 0.1 }}
-              className="mb-10 ml-8 md:ml-12 relative"
+              className="mb-6 ml-8 md:ml-12 relative"
             >
-              <div className="absolute w-4 h-4 bg-accent rounded-full -left-[42px] md:-left-[58px] top-1.5 ring-4 ring-white"></div>
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 hover:shadow-md transition-shadow">
-                <span className="inline-block px-3 py-1 bg-primary/5 text-primary font-bold text-sm rounded-lg mb-3">
+              <div className="absolute w-4 h-4 bg-accent rounded-full -left-[42px] md:-left-[58px] top-6 ring-4 ring-white"></div>
+              <div className="bg-gray-50 p-4 md:p-5 rounded-xl border border-gray-100 hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
+                <span className="shrink-0 inline-block px-3 py-1.5 bg-primary/5 text-primary font-bold text-sm rounded-lg w-max md:w-32 text-center md:text-left">
                   {item.time}
                 </span>
-                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                <p className="text-gray-600">{item.desc}</p>
+                <div>
+                  <h3 className="text-lg font-bold text-primary">{item.title}</h3>
+                  <p className="text-gray-600 text-sm mt-0.5">{item.desc}</p>
+                </div>
               </div>
             </motion.div>
           ))}

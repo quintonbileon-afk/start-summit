@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { Hero } from './components/Hero';
 import { About } from './components/About';
@@ -15,20 +15,66 @@ import { Venue } from './components/Venue';
 import { Registration } from './components/Registration';
 import { Footer } from './components/Footer';
 import { TicketModal } from './components/TicketModal';
+import { Dashboard } from './components/Dashboard';
 import { RegistrationData } from './types';
 
 export default function App() {
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
+  const [currentView, setCurrentView] = useState<'landing' | 'admin'>('landing');
+
+  // Handle Hash routing for quick bookmarking/access to dashboard
+  useEffect(() => {
+    // Clear admin hash on initial startup to ensure the landing page opens by default
+    if (window.location.hash === '#admin' || window.location.hash === '#dashboard') {
+      window.location.hash = '';
+    }
+
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash === '#admin' || hash === '#dashboard') {
+        setCurrentView('admin');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        setCurrentView('landing');
+      }
+    };
+
+    // Check on initial mount
+    handleHashChange();
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const handleRegistrationSuccess = (data: RegistrationData) => {
     setRegistrationData(data);
     setIsTicketModalOpen(true);
   };
 
+  const navigateToLanding = () => {
+    window.location.hash = '';
+    setCurrentView('landing');
+  };
+
+  const navigateToAdmin = () => {
+    window.location.hash = 'admin';
+    setCurrentView('admin');
+  };
+
+  if (currentView === 'admin') {
+    return (
+      <div className="font-sans antialiased bg-primary text-white selection:bg-accent selection:text-primary">
+        <Navigation onNavigateToAdmin={navigateToAdmin} currentView={currentView} onNavigateToLanding={navigateToLanding} />
+        <Dashboard onBack={navigateToLanding} />
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="font-sans antialiased bg-primary text-white selection:bg-accent selection:text-primary">
-      <Navigation />
+      <Navigation onNavigateToAdmin={navigateToAdmin} currentView={currentView} onNavigateToLanding={navigateToLanding} />
       
       <main>
         <Hero />

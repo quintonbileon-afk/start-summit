@@ -3,47 +3,79 @@ import { Lightbulb, Briefcase, Globe, Rocket, LineChart, Scale } from 'lucide-re
 
 export function DiscussionAreas() {
   const areas = [
-    { icon: <Briefcase className="w-10 h-10" />, title: "Entrepreneurship as a Solution to Unemployment" },
-    { icon: <LineChart className="w-10 h-10" />, title: "Startup Funding and Investment" },
-    { icon: <Globe className="w-10 h-10" />, title: "Market Access and Business Growth" },
-    { icon: <Lightbulb className="w-10 h-10" />, title: "Innovation and Technology" },
-    { icon: <Rocket className="w-10 h-10" />, title: "Startup Ecosystem Development" },
-    { icon: <Scale className="w-10 h-10" />, title: "Policy and Regulatory Environment" },
+    { 
+      icon: <Briefcase className="w-8 h-8" />, 
+      title: "Entrepreneurship & Job Creation",
+      desc: "Empowering Botswana's youth and fostering a robust culture of self-reliance through world-class incubation and localized skills training."
+    },
+    { 
+      icon: <LineChart className="w-8 h-8" />, 
+      title: "Funding & Investment Networks",
+      desc: "Unlocking cross-border venture capital, connecting regional angel investment syndicates, and mastering pitch readiness."
+    },
+    { 
+      icon: <Globe className="w-8 h-8" />, 
+      title: "Market Access & Scale",
+      desc: "Scaling beyond regional borders, leveraging the AfCFTA framework, and establishing international B2B corridors."
+    },
+    { 
+      icon: <Lightbulb className="w-8 h-8" />, 
+      title: "Innovation & Deep Tech",
+      desc: "Harnessing Artificial Intelligence, fintech, and digital transformation paradigms to redefine Gaborone's business canvas."
+    },
+    { 
+      icon: <Rocket className="w-8 h-8" />, 
+      title: "Ecosystem Integration",
+      desc: "Bridging the gap between active research institutions, established corporate partners, and grassroots startup founders."
+    },
+    { 
+      icon: <Scale className="w-8 h-8" />, 
+      title: "Policy & Regulatory Support",
+      desc: "Navigating Botswana's key startup incentives, the national Startup Act framework, and improving ease of doing business."
+    },
   ];
 
   return (
-    <section id="areas" className="py-24 bg-primary relative">
-      <div className="max-w-7xl mx-auto px-6">
+    <section id="areas" className="py-24 bg-primary relative overflow-hidden">
+      {/* Background radial soft light blobs */}
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-yellow/5 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">Key Discussion Areas</h2>
           <div className="w-20 h-2 bg-accent mx-auto rounded-full mb-6"></div>
           <p className="text-lg text-white/70 max-w-2xl mx-auto">
-            Focused panels and workshops designed to tackle the most pressing challenges and uncover the biggest opportunities.
+            Interactive panels, peer-to-peer workshops, and specialized masterclasses tailored to build regional champions.
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {areas.map((area, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.5, delay: idx * 0.1 }}
-              className="bg-primary-light/50 border border-white/10 p-8 rounded-2xl hover:bg-primary-light transition-colors group"
+              transition={{ duration: 0.7, delay: idx * 0.05, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-primary-light/50 border border-white/10 p-8 rounded-3xl hover:bg-primary-light hover:border-accent/30 hover:shadow-2xl transition-all duration-300 backdrop-blur-sm group flex flex-col justify-between h-full relative"
             >
-              <div className="w-20 h-20 bg-accent/10 rounded-2xl flex items-center justify-center text-accent mb-6 group-hover:scale-110 group-hover:-translate-y-2 group-hover:bg-accent group-hover:text-white transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]">
-                <div className="group-hover:animate-bounce">
+              {/* Subtle top light effect */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-t-3xl" />
+
+              <div>
+                <div className="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center text-accent mb-6 group-hover:scale-105 group-hover:bg-accent group-hover:text-white transition-all duration-300">
                   {area.icon}
                 </div>
+                <h3 className="text-xl font-bold text-white leading-snug mb-3 group-hover:text-accent transition-colors duration-300">{area.title}</h3>
+                <p className="text-white/60 text-sm leading-relaxed">{area.desc}</p>
               </div>
-              <h3 className="text-xl font-bold text-white leading-snug">{area.title}</h3>
             </motion.div>
           ))}
         </div>
@@ -51,3 +83,4 @@ export function DiscussionAreas() {
     </section>
   );
 }
+

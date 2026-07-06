@@ -38,13 +38,13 @@ export function Footer() {
             <ul className="space-y-4">
               <li>
                 <a href="mailto:win@startupsummit.co.bw" className="flex items-center gap-3 hover:text-accent transition-colors">
-                  <Mail className="w-5 h-5 text-secondary" />
+                  <Mail className="w-5 h-5 text-yellow" />
                   win@startupsummit.co.bw
                 </a>
               </li>
               <li>
                 <a href="tel:+26771843386" className="flex items-center gap-3 hover:text-accent transition-colors">
-                  <Phone className="w-5 h-5 text-secondary" />
+                  <Phone className="w-5 h-5 text-yellow" />
                   +267 71843386
                 </a>
               </li>

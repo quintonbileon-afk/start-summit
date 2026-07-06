@@ -48,17 +48,17 @@ export function FAQ() {
       
       <div className="max-w-4xl mx-auto px-6 relative z-10">
         <motion.div 
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="text-center mb-16"
         >
           <span className="inline-block px-4 py-1.5 bg-accent/10 text-accent font-bold text-xs uppercase tracking-widest rounded-full mb-4">
             Got Questions?
           </span>
           <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">Frequently Asked Questions</h2>
-          <div className="w-20 h-2 bg-secondary mx-auto rounded-full"></div>
+          <div className="w-20 h-2 bg-yellow mx-auto rounded-full"></div>
         </motion.div>
 
         <div className="space-y-4">

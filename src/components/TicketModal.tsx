@@ -42,7 +42,7 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
             >
               {/* Top Banner */}
               <div className="bg-primary p-6 text-center text-white relative">
-                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-accent via-secondary to-accent"></div>
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-accent via-yellow to-accent"></div>
                 <h3 className="font-display font-bold text-2xl mb-1 tracking-tight">START-UP SUMMIT</h3>
                 <p className="text-accent font-semibold text-sm tracking-widest">BOTSWANA 2026</p>
               </div>
@@ -85,19 +85,19 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
                         {data.registrationType === 'attendant' && (
                           <>
                             <span className="text-xs text-gray-400 font-semibold uppercase">•</span>
-                            <span className="text-xs text-secondary font-semibold uppercase">{data.ticketOption === 'standard' ? 'Standard Ticket' : 'Starter Pack'}</span>
+                            <span className="text-xs text-yellow font-semibold uppercase">{data.ticketOption === 'standard' ? 'Standard Ticket' : 'Starter Pack'}</span>
                           </>
                         )}
                         {data.registrationType === 'exhibitor' && (
                           <>
                             <span className="text-xs text-gray-400 font-semibold uppercase">•</span>
-                            <span className="text-xs text-secondary font-semibold uppercase">{data.exhibitorCategory.replace(/ – BWP.*/, '')}</span>
+                            <span className="text-xs text-yellow font-semibold uppercase">{data.exhibitorCategory.replace(/ – BWP.*/, '')}</span>
                           </>
                         )}
                         {data.registrationType === 'partner' && (
                           <>
                             <span className="text-xs text-gray-400 font-semibold uppercase">•</span>
-                            <span className="text-xs text-secondary font-semibold uppercase">{data.partnershipCategory}</span>
+                            <span className="text-xs text-yellow font-semibold uppercase">{data.partnershipCategory}</span>
                           </>
                         )}
                       </div>
@@ -106,14 +106,14 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
 
                   <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-100">
                     <div className="flex items-start gap-2">
-                      <Calendar className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+                      <Calendar className="w-4 h-4 text-yellow shrink-0 mt-0.5" />
                       <div>
                         <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Date</p>
                         <p className="font-medium text-sm">Aug 7, 2026</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+                      <MapPin className="w-4 h-4 text-yellow shrink-0 mt-0.5" />
                       <div>
                         <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Venue</p>
                         <p className="font-medium text-sm leading-tight">Game City Center</p>
@@ -126,7 +126,7 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
 
             <div className="mt-6 flex justify-center">
               <button 
-                className="flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-primary font-bold py-3 px-8 rounded-full transition-all hover:scale-105 active:scale-95"
+                className="flex items-center gap-2 bg-yellow hover:bg-yellow/90 text-primary font-bold py-3 px-8 rounded-full transition-all hover:scale-105 active:scale-95"
                 onClick={() => alert("In a real app, this would download the ticket image.")}
               >
                 <Download className="w-5 h-5" />
