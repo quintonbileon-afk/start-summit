@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Download, Calendar, MapPin, User, Briefcase } from 'lucide-react';
+import { X, Download, Calendar, MapPin, User, Briefcase, Share2 } from 'lucide-react';
 import { RegistrationData } from '../types';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 
 interface TicketModalProps {
   isOpen: boolean;
@@ -12,11 +13,49 @@ interface TicketModalProps {
 
 export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
   const ticketRef = useRef<HTMLDivElement>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   if (!data) return null;
 
   const ticketId = `SSB26-${data.fullName.replace(/\s+/g, '').substring(0, 5).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const qrData = JSON.stringify({ name: data.fullName, email: data.email, ticketId });
+
+  const captureTicket = async (): Promise<string | null> => {
+    if (!ticketRef.current) return null;
+    setIsCapturing(true);
+    try {
+      const canvas = await html2canvas(ticketRef.current, {
+        scale: 2,
+        backgroundColor: null,
+        logging: false,
+      });
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('Error capturing ticket:', error);
+      return null;
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    const dataUrl = await captureTicket();
+    if (dataUrl) {
+      const link = document.createElement('a');
+      link.download = `StartupSummitTicket-${data.fullName.replace(/\s+/g, '')}.png`;
+      link.href = dataUrl;
+      link.click();
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    // Note: Sharing images directly via WhatsApp URL scheme is not fully supported on all platforms via a simple link.
+    // Usually, we share a text message that can include a link to the ticket if hosted online.
+    // For this app, we will share a custom text message since we don't have a public URL for the generated image.
+    const text = `I'm attending the Botswana Startup Summit 2026! 🚀 Join me at Game City Center on Aug 7.`;
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
   return (
     <AnimatePresence>
@@ -124,13 +163,21 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
               </div>
             </div>
 
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
               <button 
-                className="flex items-center gap-2 bg-yellow hover:bg-yellow/90 text-primary font-bold py-3 px-8 rounded-full transition-all hover:scale-105 active:scale-95"
-                onClick={() => alert("In a real app, this would download the ticket image.")}
+                className="flex items-center justify-center gap-2 bg-yellow hover:bg-yellow/90 text-primary font-bold py-3 px-6 rounded-full transition-all hover:scale-105 active:scale-95 disabled:opacity-70"
+                onClick={handleDownload}
+                disabled={isCapturing}
               >
                 <Download className="w-5 h-5" />
-                Download Ticket
+                {isCapturing ? 'Generating...' : 'Download Ticket'}
+              </button>
+              <button 
+                className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-3 px-6 rounded-full transition-all hover:scale-105 active:scale-95"
+                onClick={handleWhatsAppShare}
+              >
+                <Share2 className="w-5 h-5" />
+                Share on WhatsApp
               </button>
             </div>
           </motion.div>
