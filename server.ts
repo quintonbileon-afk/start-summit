@@ -305,6 +305,69 @@ app.post("/api/send-registration-email", async (req, res) => {
   }
 });
 
+// API: Speaker Application Email
+app.post("/api/speaker-apply", async (req, res) => {
+  const { fullName, email, role, company, topic, bio } = req.body;
+
+  if (!email || !fullName || !topic) {
+    return res.status(400).json({ 
+      success: false, 
+      error: "Missing required fields." 
+    });
+  }
+
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = process.env.SMTP_PORT;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const smtpFrom = process.env.SMTP_FROM || "Startup Summit Botswana <admin@startupsummit.co.bw>";
+
+  if (!smtpHost || !smtpUser || !smtpPass) {
+    console.log("----------------------------------------");
+    console.log("📨 STUBBED EMAIL DISPATCH (SMTP credentials not configured):");
+    console.log(`Speaker Application from: ${fullName} <${email}>`);
+    console.log(`Topic: ${topic}`);
+    console.log("----------------------------------------");
+    return res.status(200).json({ success: true, simulated: true });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: parseInt(smtpPort || "587", 10),
+      secure: smtpPort === "465",
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    const adminMailOptions = {
+      from: smtpFrom,
+      to: "admin@startupsummit.co.bw",
+      subject: `New Speaker Application: ${fullName}`,
+      html: `
+        <h2>New Speaker Application Received</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr><td style="padding: 6px 0; font-weight: bold;">Name:</td><td>${fullName}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: bold;">Email:</td><td>${email}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: bold;">Role:</td><td>${role}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: bold;">Company:</td><td>${company}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: bold;">Topic:</td><td>${topic}</td></tr>
+          <tr><td style="padding: 6px 0; font-weight: bold;">Bio:</td><td>${bio}</td></tr>
+        </table>
+      `,
+    };
+
+    await transporter.sendMail(adminMailOptions);
+    
+    return res.status(200).json({ success: true });
+  } catch (error: any) {
+    console.error("Nodemailer error:", error);
+    return res.status(500).json({ success: false, error: "Failed to send application." });
+  }
+});
+
 // Vite middleware and routing for SPA fallback
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

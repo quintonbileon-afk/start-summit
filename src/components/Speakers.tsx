@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mic, ArrowRight } from 'lucide-react';
+import { SpeakerModal } from './SpeakerModal';
 
 export function Speakers() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <section id="speakers" className="py-24 bg-gray-50 text-primary relative overflow-hidden">
       {/* Decorative background pattern */}
@@ -31,16 +35,21 @@ export function Speakers() {
             <p className="text-gray-500 mb-8">
               We are looking for thought leaders to lead keynotes, fireside chats, and panel discussions.
             </p>
-            <a 
-              href="mailto:admin@startupsummit.co.bw?subject=Speaker%20Application%20-%20Startup%20Summit%20Botswana"
-              className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-light text-white font-bold py-4 px-8 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-md group"
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-light text-white font-bold py-4 px-8 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-md group cursor-pointer"
             >
               Apply to Speak
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </a>
+            </button>
           </div>
         </motion.div>
       </div>
+
+      <SpeakerModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </section>
   );
 }

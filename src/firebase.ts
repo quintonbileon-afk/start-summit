@@ -1,27 +1,28 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import firebaseAppletConfig from '../firebase-applet-config.json';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC6d21FVaFZT-MUhee610ANDIyToA4V3CU",
-  authDomain: "project-a1a39e1f-ceb5-49f4-984.firebaseapp.com",
-  projectId: "project-a1a39e1f-ceb5-49f4-984",
-  storageBucket: "project-a1a39e1f-ceb5-49f4-984.firebasestorage.app",
-  messagingSenderId: "721748495475",
-  appId: "1:721748495475:web:a8e8dddd84b6afefc7ae06"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseAppletConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseAppletConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseAppletConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseAppletConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseAppletConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseAppletConfig.appId
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
 // Initialize Cloud Firestore with the correct database ID from firebase-applet-config.json
-const dbId = "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
+const dbId = firebaseAppletConfig.firestoreDatabaseId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
 export const db = getFirestore(app, dbId);
 export const auth = getAuth(app);
 
 // Pre-seed admin credentials
-export const ADMIN_EMAIL = 'admin@startupsummit.bw';
-export const ADMIN_PASSWORD = 'BotswanaAdmin2026!';
+export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@startupsummit.co.bw';
+export const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'YOUR_ADMIN_PASSWORD';
 
 // Helper to seed the admin user if they do not exist
 export async function seedAdminUser() {
