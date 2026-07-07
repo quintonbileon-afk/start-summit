@@ -64,17 +64,23 @@ export function DiscussionAreas() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.7, delay: idx * 0.05, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-primary-light/50 border border-white/10 p-8 rounded-3xl hover:bg-primary-light hover:border-accent/30 hover:shadow-2xl transition-all duration-300 backdrop-blur-sm group flex flex-col justify-between h-full relative"
+              className="bg-white/5 border border-white/10 p-8 rounded-[2rem] hover:-translate-y-2 hover:border-accent/30 hover:shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 backdrop-blur-sm group flex flex-col justify-between h-full relative overflow-hidden"
             >
+              {/* Animated gradient background on hover */}
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              
               {/* Subtle top light effect */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-t-3xl" />
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-accent/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-              <div>
-                <div className="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center text-accent mb-6 group-hover:scale-105 group-hover:bg-accent group-hover:text-white transition-all duration-300">
-                  {area.icon}
+              <div className="relative z-10">
+                <div className="mb-8 relative inline-flex">
+                  <div className="absolute inset-0 bg-accent blur-xl opacity-20 group-hover:opacity-60 transition-opacity duration-500 rounded-full" />
+                  <div className="relative w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-accent group-hover:scale-110 group-hover:bg-accent group-hover:text-primary transition-all duration-500 group-hover:-rotate-3 group-hover:shadow-lg group-hover:shadow-accent/25">
+                    {area.icon}
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-white leading-snug mb-3 group-hover:text-accent transition-colors duration-300">{area.title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed">{area.desc}</p>
+                <h3 className="text-2xl font-bold text-white leading-snug mb-4 group-hover:text-accent transition-colors duration-300">{area.title}</h3>
+                <p className="text-white/70 text-base leading-relaxed">{area.desc}</p>
               </div>
             </motion.div>
           ))}

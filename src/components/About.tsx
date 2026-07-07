@@ -4,17 +4,17 @@ import { Target, TrendingUp, Users } from 'lucide-react';
 export function About() {
   const pillars = [
     {
-      icon: <Users className="w-8 h-8 text-accent" />,
+      icon: <Users className="w-8 h-8 text-accent group-hover:text-accent transition-colors" />,
       title: "Ecosystem Collaboration",
       desc: "Bringing together entrepreneurs, investors, corporates, and policymakers."
     },
     {
-      icon: <TrendingUp className="w-8 h-8 text-yellow" />,
+      icon: <TrendingUp className="w-8 h-8 text-yellow group-hover:text-accent transition-colors" />,
       title: "Economic Diversification",
       desc: "Repositioning the economy towards private sector-led growth."
     },
     {
-      icon: <Target className="w-8 h-8 text-accent" />,
+      icon: <Target className="w-8 h-8 text-accent group-hover:text-accent transition-colors" />,
       title: "Practical Solutions",
       desc: "Addressing real constraints and cultivating a vibrant startup ecosystem."
     }
@@ -53,14 +53,17 @@ export function About() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-100px" }}
                 transition={{ duration: 0.5, delay: idx * 0.1 }}
-                className="flex gap-6 p-6 rounded-2xl bg-gray-50 border border-gray-100 hover:shadow-lg transition-shadow"
+                className="flex gap-6 p-6 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden"
               >
-                <div className="shrink-0 p-4 bg-white rounded-xl shadow-sm h-fit">
+                {/* Subtle gradient hover background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                
+                <div className="relative z-10 shrink-0 w-16 h-16 flex items-center justify-center bg-gray-50 rounded-xl shadow-sm border border-gray-100 group-hover:scale-110 group-hover:bg-accent/10 group-hover:border-accent/20 transition-all duration-300">
                   {pillar.icon}
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-2">{pillar.title}</h3>
-                  <p className="text-gray-600">{pillar.desc}</p>
+                <div className="relative z-10">
+                  <h3 className="text-xl font-bold mb-2 text-primary group-hover:text-accent transition-colors duration-300">{pillar.title}</h3>
+                  <p className="text-gray-600 leading-relaxed">{pillar.desc}</p>
                 </div>
               </motion.div>
             ))}
