@@ -34,6 +34,7 @@ export default function App() {
 
   // Handle Hash routing for quick bookmarking/access to dashboard
   useEffect(() => {
+    document.title = "Startup Summit Botswana 2026";
     // Clear admin hash on initial startup to ensure the landing page opens by default
     if (window.location.hash === '#admin' || window.location.hash === '#dashboard') {
       window.location.hash = '';
