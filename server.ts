@@ -32,8 +32,7 @@ app.post("/api/send-registration-email", async (req, res) => {
     exhibitorCategory,
     productsExhibited,
     partnershipCategory,
-    partnershipInterest,
-    origin
+    partnershipInterest
   } = req.body;
 
   if (!email || !fullName || !registrationType) {
@@ -43,157 +42,184 @@ app.post("/api/send-registration-email", async (req, res) => {
     });
   }
 
-  const cleanName = fullName.replace(/\s+/g, '').substring(0, 5).toUpperCase();
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  const ticketId = `SSB26-${cleanName}-${randomSuffix}`;
-  const qrData = JSON.stringify({ name: fullName, email, ticketId });
-  const appOrigin = origin || 'https://www.startupsummit.co.bw';
+  // Choose subject & custom template based on registration type
+  let subject = "Startup Summit Botswana - Registration Confirmation";
+  let greetingTitle = "Registration Confirmed!";
+  let detailsHtml = "";
+  let roleSpecificInstructions = "";
 
-  let subject = `Your Ticket for Startup Summit Botswana - ${fullName}`;
-  let ticketTypeDisplay = '';
-  let invoiceDescription = '';
-  let price = 0;
+  const themeColor = "#111827"; // Dark professional brand color matching deep slate
+  const accentColor = "#10B981"; // Vibrant green matching accent
 
   if (registrationType === 'attendant') {
-    ticketTypeDisplay = ticketOption === 'standard' ? 'Standard Ticket' : 'Starter Pack';
-    price = ticketOption === 'standard' ? 300 : 850;
-    invoiceDescription = `Attendee Registration - ${ticketTypeDisplay}`;
+    subject = `Your Ticket for Startup Summit Botswana - ${fullName}`;
+    greetingTitle = "Your Startup Summit Ticket is Confirmed!";
+    detailsHtml = `
+      <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: ${themeColor};">Registration Details:</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #4b5563;">
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Participant:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${fullName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Company/Org:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${company || "Individual"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Role:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${role || "Participant"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Category:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827; text-transform: capitalize;">${participantCategory || "Standard Attendant"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Ticket Tier:</td>
+            <td style="padding: 6px 0; text-align: right; color: ${accentColor}; font-weight: bold; text-transform: uppercase;">${ticketOption || "Standard"}</td>
+          </tr>
+        </table>
+      </div>
+    `;
+    roleSpecificInstructions = `
+      <p style="margin-top: 0; margin-bottom: 12px;">We are thrilled to welcome you as an attendee. The summit is packed with keynote presentations, interactive panels, startup pitch competitions, and high-value networking opportunities.</p>
+      <p style="margin-bottom: 0;"><strong>What's Next?</strong> Your registration badge will be prepared and ready for pickup at the registration desk on the morning of the summit. Please keep this confirmation email handy (either printed or on your phone) for seamless check-in.</p>
+    `;
   } else if (registrationType === 'exhibitor') {
-    ticketTypeDisplay = exhibitorCategory ? exhibitorCategory.replace(/ – BWP.*/, '') : 'Exhibitor';
-    invoiceDescription = `Exhibitor Space - ${ticketTypeDisplay}`;
-    if (ticketTypeDisplay === 'SME EXHIBITOR') price = 1500;
-    else if (ticketTypeDisplay === 'GOVERNMENT AGENCY') price = 30000;
-    else if (ticketTypeDisplay === 'CORPORATE EXHIBITOR') price = 30000;
+    subject = `Exhibitor Space Secured - Startup Summit Botswana`;
+    greetingTitle = "Your Exhibitor Application is Confirmed!";
+    detailsHtml = `
+      <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: ${themeColor};">Exhibitor Profile:</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #4b5563;">
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Company Name:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${company}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Primary Contact:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${fullName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Exhibitor Category:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827; text-transform: capitalize;">${exhibitorCategory || "General"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Business Sector:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${businessSector || "N/A"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Showcase Offerings:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${productsExhibited || "N/A"}</td>
+          </tr>
+        </table>
+      </div>
+    `;
+    roleSpecificInstructions = `
+      <p style="margin-top: 0; margin-bottom: 12px;">Thank you for registering to showcase your innovative solutions. Having your brand represented at Startup Summit Botswana will put you directly in front of leading investors, industry experts, and potential partners.</p>
+      <p style="margin-bottom: 0;"><strong>What's Next?</strong> Our Exhibitor Relations Team will send you a comprehensive Exhibitor Kit in the coming days. This kit contains setup guidelines, booth layout configurations, shipping directions, and event-day scheduling details.</p>
+    `;
   } else if (registrationType === 'partner') {
-    ticketTypeDisplay = partnershipCategory || 'Partner';
-    subject = `Partnership Received - Startup Summit Botswana`;
+    subject = `Partnership & Sponsorship Received - Startup Summit Botswana`;
+    greetingTitle = "Thank You for Partnering with Us!";
+    detailsHtml = `
+      <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: ${themeColor};">Partnership Profile:</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; color: #4b5563;">
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Partner Organization:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${company}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Lead Contact:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${fullName} (${role || "Representative"})</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Partnership Category:</td>
+            <td style="padding: 6px 0; text-align: right; color: ${accentColor}; font-weight: bold; text-transform: capitalize;">${partnershipCategory || "Partner/Sponsor"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; font-weight: 500;">Area of Interest:</td>
+            <td style="padding: 6px 0; text-align: right; color: #111827;">${partnershipInterest || "General Collaboration"}</td>
+          </tr>
+        </table>
+      </div>
+    `;
+    roleSpecificInstructions = `
+      <p style="margin-top: 0; margin-bottom: 12px;">We are deeply honored to have your organization partner with Startup Summit Botswana. Your support is instrumental in driving the growth, resilience, and transformation of Botswana's startup ecosystem.</p>
+      <p style="margin-bottom: 0;"><strong>What's Next?</strong> A senior member of our organizing committee will reach out to you within 24–48 hours to discuss custom sponsorship benefits, brand placements, speaking slots, and finalize our partnership roadmap.</p>
+    `;
   }
 
-  const needsInvoice = price > 0;
-
-  const ticketHtml = `
-    <div style="background-color: #ffffff; color: #0f1b2b; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); max-width: 448px; margin: 0 auto; position: relative; font-family: sans-serif; border: 1px solid #e5e7eb;">
-      <div style="background-color: #0f1b2b; padding: 24px; text-align: center; color: white; position: relative;">
-        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: linear-gradient(to right, #10B981, #FBBF24, #10B981);"></div>
-        <img src="${appOrigin}/startup_summit_logo.png" alt="Logo" style="height: 48px; width: auto; margin-bottom: 12px; display: inline-block;" />
-        <h3 style="font-weight: 700; font-size: 24px; margin: 0 0 4px 0; letter-spacing: -0.025em;">START-UP SUMMIT</h3>
-        <p style="color: #10B981; font-weight: 600; font-size: 12px; letter-spacing: 0.1em; margin: 0;">BOTSWANA 2026</p>
-      </div>
-      <div style="border-top: 2px dashed #e5e7eb; margin: 4px 24px 0 24px;"></div>
-      <div style="padding: 32px 32px 40px 32px;">
-        <div style="text-align: center; margin-bottom: 32px;">
-          <div style="display: inline-block; padding: 12px; background-color: white; border-radius: 12px; border: 1px solid #f3f4f6; margin-bottom: 16px;">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}" alt="QR Code" width="160" height="160" />
-          </div>
-          <p style="font-size: 12px; color: #9ca3af; font-family: monospace; margin: 0;">${ticketId}</p>
-        </div>
-        <div style="margin-bottom: 16px;">
-          <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin: 0 0 4px 0;">Attendee</p>
-          <p style="font-weight: 700; font-size: 18px; margin: 0; color: #111827;">${fullName}</p>
-        </div>
-        <div style="margin-bottom: 24px;">
-          <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin: 0 0 4px 0;">Role / Organization</p>
-          <p style="font-weight: 500; color: #374151; margin: 0 0 4px 0;">${role || 'Participant'} at ${company || 'N/A'}</p>
-          <div style="margin-top: 4px;">
-            <span style="font-size: 12px; color: #10B981; font-weight: 600; text-transform: uppercase;">${registrationType}</span>
-            ${ticketTypeDisplay ? `<span style="font-size: 12px; color: #9ca3af; font-weight: 600; text-transform: uppercase; margin: 0 4px;">•</span><span style="font-size: 12px; color: #FBBF24; font-weight: 600; text-transform: uppercase;">${ticketTypeDisplay}</span>` : ''}
-          </div>
-        </div>
-        <div style="border-top: 1px solid #f3f4f6; margin-top: 24px; padding-top: 24px;">
-          <table style="width: 100%; border: 0;" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width: 50%; vertical-align: top;">
-                <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin: 0 0 4px 0;">Date</p>
-                <p style="font-weight: 500; font-size: 14px; margin: 0; color: #111827;">Aug 7, 2026</p>
-              </td>
-              <td style="width: 50%; vertical-align: top;">
-                <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin: 0 0 4px 0;">Venue</p>
-                <p style="font-weight: 500; font-size: 14px; margin: 0; color: #111827;">Game City Center</p>
-              </td>
-            </tr>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const invoiceHtml = needsInvoice ? `
-    <div style="background-color: #ffffff; border: 1px solid #e5e7eb; padding: 40px; max-width: 600px; margin: 40px auto 0 auto; font-family: sans-serif; color: #374151; border-radius: 8px;">
-      <table style="width: 100%; margin-bottom: 40px;" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="vertical-align: top;">
-            <img src="${appOrigin}/startup_summit_logo.png" alt="Logo" style="height: 40px; width: auto; margin-bottom: 8px;" />
-            <h2 style="margin: 0; color: #111827; font-size: 20px;">Startup Summit Botswana</h2>
-            <p style="margin: 4px 0 0 0; font-size: 14px; color: #6b7280;">Game City Center, Gaborone</p>
-          </td>
-          <td style="vertical-align: top; text-align: right;">
-            <h1 style="margin: 0; color: #111827; font-size: 28px; text-transform: uppercase; letter-spacing: 1px;">Proforma Invoice</h1>
-            <p style="margin: 4px 0 0 0; font-size: 14px;"><strong>Invoice No:</strong> INV-${ticketId}</p>
-            <p style="margin: 4px 0 0 0; font-size: 14px;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-          </td>
-        </tr>
-      </table>
-      
-      <div style="margin-bottom: 40px;">
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Bill To:</p>
-        <p style="margin: 0 0 4px 0; font-weight: bold; color: #111827; font-size: 16px;">${fullName}</p>
-        <p style="margin: 0 0 4px 0; font-size: 14px;">${company || 'N/A'}</p>
-        <p style="margin: 0; font-size: 14px;">${email}</p>
-      </div>
-
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
-        <thead>
-          <tr style="border-bottom: 2px solid #e5e7eb;">
-            <th style="padding: 12px 0; text-align: left; font-size: 14px; color: #6b7280; text-transform: uppercase;">Description</th>
-            <th style="padding: 12px 0; text-align: right; font-size: 14px; color: #6b7280; text-transform: uppercase;">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 16px 0; font-size: 15px; color: #111827;">${invoiceDescription}</td>
-            <td style="padding: 16px 0; text-align: right; font-size: 15px; color: #111827; font-weight: 500;">BWP ${price.toLocaleString()}</td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <td style="padding: 16px 0; text-align: right; font-size: 15px; font-weight: bold; color: #111827;">Total Due:</td>
-            <td style="padding: 16px 0; text-align: right; font-size: 18px; font-weight: bold; color: #10B981;">BWP ${price.toLocaleString()}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; font-size: 14px; color: #4b5563;">
-        <p style="margin: 0 0 12px 0; font-weight: bold; color: #111827;">Payment Instructions:</p>
-        <p style="margin: 0 0 4px 0;">Please transfer the total amount due to the following bank account to confirm your registration.</p>
-        <ul style="margin: 8px 0 0 0; padding-left: 20px;">
-          <li><strong>Bank:</strong> FNB Botswana</li>
-          <li><strong>Account Name:</strong> Startup Summit BW</li>
-          <li><strong>Account Number:</strong> 62000000000</li>
-          <li><strong>Branch Code:</strong> 281467</li>
-          <li><strong>Reference:</strong> ${ticketId}</li>
-        </ul>
-      </div>
-    </div>
-  ` : '';
-
+  // Create the final HTML structure for the email
   const htmlContent = `
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Startup Summit Botswana - Registration Confirmation</title>
+      <meta charset="utf-8">
+      <title>${subject}</title>
     </head>
-    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f3f4f6; padding: 40px 0;">
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 40px 0; -webkit-font-smoothing: antialiased;">
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+        <!-- Header Banner -->
         <tr>
-          <td align="center">
-            <p style="margin-bottom: 24px; color: #4b5563; font-size: 16px;">Hello ${fullName}, thank you for registering for the <strong>Startup Summit Botswana</strong>.</p>
-            ${ticketHtml}
-            ${invoiceHtml}
-            <div style="margin-top: 40px; text-align: center; color: #9ca3af; font-size: 12px;">
-              <p>&copy; 2026 Startup Summit Botswana. All rights reserved.</p>
+          <td style="background-color: ${themeColor}; padding: 40px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">STARTUP SUMMIT</h1>
+            <p style="color: ${accentColor}; margin: 5px 0 0 0; font-size: 14px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;">Botswana</p>
+          </td>
+        </tr>
+        
+        <!-- Email Body -->
+        <tr>
+          <td style="padding: 40px; color: #374151; line-height: 1.6;">
+            <h2 style="color: ${themeColor}; margin-top: 0; margin-bottom: 16px; font-size: 20px; font-weight: 700;">Hello ${fullName},</h2>
+            <p style="margin-top: 0; margin-bottom: 24px; font-size: 16px;">
+              Thank you for registering for the <strong>Startup Summit Botswana</strong>. We have successfully received your registration details.
+            </p>
+            
+            <!-- Greeting Banner -->
+            <div style="border-left: 4px solid ${accentColor}; padding: 12px 16px; background-color: #f0fdf4; margin-bottom: 24px;">
+              <p style="margin: 0; font-weight: 600; color: #166534; font-size: 15px;">${greetingTitle}</p>
             </div>
+
+            <!-- Custom Details block -->
+            ${detailsHtml}
+
+            <!-- Role specific info -->
+            <div style="font-size: 15px; margin-bottom: 30px;">
+              ${roleSpecificInstructions}
+            </div>
+
+            <!-- Footer divider -->
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+
+            <!-- Event Details Callout -->
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+              <tr>
+                <td style="width: 50%; vertical-align: top; padding-right: 15px;">
+                  <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #9ca3af; letter-spacing: 0.5px;">Date & Time</p>
+                  <p style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">To Be Announced</p>
+                  <p style="margin: 0; font-size: 13px; color: #6b7280;">Gaborone, Botswana</p>
+                </td>
+                <td style="width: 50%; vertical-align: top; padding-left: 15px; border-left: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: bold; text-transform: uppercase; color: #9ca3af; letter-spacing: 0.5px;">Venue</p>
+                  <p style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">Gaborone, Botswana</p>
+                  <p style="margin: 0; font-size: 13px; color: #6b7280;">Physical & Virtual Access</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Email Footer -->
+        <tr>
+          <td style="background-color: #f9fafb; padding: 30px 40px; text-align: center; border-top: 1px solid #f3f4f6;">
+            <p style="margin: 0 0 10px 0; font-size: 13px; color: #9ca3af;">
+              This is an automated confirmation email regarding your registration at Startup Summit Botswana.
+            </p>
+            <p style="margin: 0; font-size: 12px; color: #cbd5e1;">
+              &copy; 2026 Startup Summit Botswana. All rights reserved.
+            </p>
           </td>
         </tr>
       </table>
@@ -207,17 +233,19 @@ app.post("/api/send-registration-email", async (req, res) => {
   const smtpPass = process.env.SMTP_PASS;
   const smtpFrom = process.env.SMTP_FROM || "Startup Summit Botswana <noreply@startupsummit.bw>";
 
+  // If credentials are not configured, print to logs gracefully and succeed with a descriptive message
   if (!smtpHost || !smtpUser || !smtpPass) {
     console.log("----------------------------------------");
-    console.log("📨 STUBBED EMAIL DISPATCH:");
+    console.log("📨 STUBBED EMAIL DISPATCH (SMTP credentials not configured in environment):");
     console.log(`To: ${email}`);
     console.log(`Subject: ${subject}`);
-    console.log(`Price: BWP ${price}`);
+    console.log(`FullName: ${fullName}`);
+    console.log(`Type: ${registrationType}`);
     console.log("----------------------------------------");
     
     return res.status(200).json({
       success: true,
-      message: "Email dispatch simulation completed.",
+      message: "Email dispatch simulation completed. (To send real emails, please define SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS secrets in the AI Studio settings panel).",
       simulated: true
     });
   }
@@ -226,7 +254,7 @@ app.post("/api/send-registration-email", async (req, res) => {
     const transporter = nodemailer.createTransport({
       host: smtpHost,
       port: parseInt(smtpPort || "587", 10),
-      secure: smtpPort === "465",
+      secure: smtpPort === "465", // true for 465, false for other ports
       auth: {
         user: smtpUser,
         pass: smtpPass,
@@ -247,11 +275,8 @@ app.post("/api/send-registration-email", async (req, res) => {
       html: `
         <h2>New Registration Received</h2>
         <p>A new user has registered for the Startup Summit.</p>
-        <p><strong>Name:</strong> ${fullName}</p>
+        ${detailsHtml}
         <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Type:</strong> ${registrationType}</p>
-        <p><strong>Company:</strong> ${company || 'N/A'}</p>
-        <p><strong>Role:</strong> ${role || 'N/A'}</p>
       `,
     };
 
@@ -264,7 +289,7 @@ app.post("/api/send-registration-email", async (req, res) => {
     } catch (adminError) {
       console.error("Error sending admin notification:", adminError);
     }
-    
+
     return res.status(200).json({
       success: true,
       message: `Confirmation email dispatched successfully to ${email}.`,
@@ -274,7 +299,7 @@ app.post("/api/send-registration-email", async (req, res) => {
     console.error("Nodemailer error sending email:", error);
     return res.status(500).json({
       success: false,
-      error: "The email server encountered an issue.",
+      error: "The email server encountered an issue while trying to send the notification.",
       details: error.message
     });
   }

@@ -79,7 +79,7 @@ export function Registration({ onSuccess }: RegistrationProps) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ ...formData, origin: window.location.origin }),
+          body: JSON.stringify(formData),
         }).catch(emailError => console.warn('Silent email failure:', emailError));
 
         onSuccess(formData);

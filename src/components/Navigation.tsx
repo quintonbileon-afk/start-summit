@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Sun, Moon, LayoutDashboard, Home } from 'lucide-react';
-import logoUrl from '../assets/images/startup_summit_logo.png';
+import logoUrl from '../assets/images/startup_summit.png';
 
 interface NavigationProps {
   onNavigateToAdmin?: () => void;

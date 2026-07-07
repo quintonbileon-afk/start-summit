@@ -4,7 +4,6 @@ import { X, Download, Calendar, MapPin, User, Briefcase, Share2 } from 'lucide-r
 import { RegistrationData } from '../types';
 import { useRef, useState } from 'react';
 import { toPng } from 'html-to-image';
-import startupSummitLogo from '../assets/images/startup_summit_logo.png';
 
 interface TicketModalProps {
   isOpen: boolean;
@@ -81,11 +80,10 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
               className="bg-white text-primary rounded-3xl overflow-hidden shadow-2xl relative"
             >
               {/* Top Banner */}
-              <div className="bg-primary p-6 text-center text-white relative flex flex-col items-center">
+              <div className="bg-primary p-6 text-center text-white relative">
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-accent via-yellow to-accent"></div>
-                <img src={startupSummitLogo} alt="Startup Summit Logo" className="h-12 w-auto mb-3 object-contain" />
-                <h3 className="font-display font-bold text-xl mb-1 tracking-tight">START-UP SUMMIT</h3>
-                <p className="text-accent font-semibold text-xs tracking-widest">BOTSWANA 2026</p>
+                <h3 className="font-display font-bold text-2xl mb-1 tracking-tight">START-UP SUMMIT</h3>
+                <p className="text-accent font-semibold text-sm tracking-widest">BOTSWANA 2026</p>
               </div>
 
               {/* Cutouts */}
