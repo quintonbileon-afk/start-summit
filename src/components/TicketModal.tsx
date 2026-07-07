@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { X, Download, Calendar, MapPin, User, Briefcase, Share2 } from 'lucide-react';
 import { RegistrationData } from '../types';
 import { useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 interface TicketModalProps {
   isOpen: boolean;
@@ -24,12 +24,12 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
     if (!ticketRef.current) return null;
     setIsCapturing(true);
     try {
-      const canvas = await html2canvas(ticketRef.current, {
-        scale: 2,
-        backgroundColor: null,
-        logging: false,
+      const dataUrl = await toPng(ticketRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: 'transparent'
       });
-      return canvas.toDataURL('image/png');
+      return dataUrl;
     } catch (error) {
       console.error('Error capturing ticket:', error);
       return null;
@@ -52,7 +52,7 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
     // Note: Sharing images directly via WhatsApp URL scheme is not fully supported on all platforms via a simple link.
     // Usually, we share a text message that can include a link to the ticket if hosted online.
     // For this app, we will share a custom text message since we don't have a public URL for the generated image.
-    const text = `I'm attending the Botswana Startup Summit 2026! 🚀 Join me at Game City Center on Aug 7.`;
+    const text = `I'm attending the Botswana Startup Summit 2026! 🚀 Join me at Game City Center on Aug 7. Register here: https://www.startupsummit.co.bw`;
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, '_blank');
   };

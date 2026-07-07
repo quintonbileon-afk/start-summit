@@ -73,18 +73,14 @@ export function Registration({ onSuccess }: RegistrationProps) {
           submittedAt: serverTimestamp()
         });
 
-        // Trigger notification email dispatch
-        try {
-          await fetch('/api/send-registration-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formData),
-          });
-        } catch (emailError) {
-          console.warn('Silent email failure:', emailError);
-        }
+        // Trigger notification email dispatch non-blocking
+        fetch('/api/send-registration-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+        }).catch(emailError => console.warn('Silent email failure:', emailError));
 
         onSuccess(formData);
       } catch (error) {
