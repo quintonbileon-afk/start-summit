@@ -34,13 +34,76 @@ export function Dashboard({ onBack }: DashboardProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // Ticket Verification & Check-in states
-  const [activeTab, setActiveTab] = useState<'list' | 'verify'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'verify' | 'email_logs'>('list');
   const [verifyQuery, setVerifyQuery] = useState('');
   const [verifyResult, setVerifyResult] = useState<FirebaseRegistration | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState<string | null>(null);
+  const [isResendingEmail, setIsResendingEmail] = useState<string | null>(null);
   const [verificationSuccessMessage, setVerificationSuccessMessage] = useState<string | null>(null);
   const [verifySearchTerm, setVerifySearchTerm] = useState('');
+
+  // Email Delivery logs state
+  const [emailLogs, setEmailLogs] = useState<any[]>([]);
+  const [emailLogsLoading, setEmailLogsLoading] = useState(true);
+
+  // Load email logs in real-time
+  useEffect(() => {
+    if (!user) return;
+    
+    const logsQuery = query(collection(db, 'email_logs'), orderBy('timestamp', 'desc'));
+    
+    const unsubscribe = onSnapshot(logsQuery, (snapshot) => {
+      const data: any[] = [];
+      snapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() });
+      });
+      setEmailLogs(data);
+      setEmailLogsLoading(false);
+    }, (error) => {
+      console.error("Firestore email_logs sync error:", error);
+      setEmailLogsLoading(false);
+    });
+    
+    return () => unsubscribe();
+  }, [user]);
+
+  // Handle Resending a ticket
+  const handleResendTicket = async (reg: FirebaseRegistration) => {
+    setIsResendingEmail(reg.id);
+    setVerificationSuccessMessage(null);
+    try {
+      const response = await fetch('/api/resend-ticket-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: reg.id,
+          fullName: reg.fullName,
+          email: reg.email,
+          registrationType: reg.registrationType,
+          ticketOption: reg.ticketOption,
+          exhibitorCategory: reg.exhibitorCategory,
+          company: reg.company,
+          ticketId: getTicketId(reg)
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setVerificationSuccessMessage(`Digital ticket copy resent to ${reg.fullName} (${reg.email}) successfully!`);
+      } else {
+        throw new Error(data.error || "Failed to resend ticket email.");
+      }
+      setTimeout(() => setVerificationSuccessMessage(null), 4500);
+    } catch (err: any) {
+      console.error("Resend ticket email error:", err);
+      alert(`Error resending email: ${err.message || String(err)}`);
+    } finally {
+      setIsResendingEmail(null);
+    }
+  };
 
   // Computes or retrieves a stable ticket number for any registration
   const getTicketId = (reg: FirebaseRegistration): string => {
@@ -115,6 +178,55 @@ export function Dashboard({ onBack }: DashboardProps) {
       handleFirestoreError(err, OperationType.UPDATE, `registrations/${regId}`);
     } finally {
       setIsCheckingIn(false);
+    }
+  };
+
+  // Perform manual payment verification and send final ticket email
+  const handleVerifyPayment = async (reg: FirebaseRegistration) => {
+    setIsVerifyingPayment(reg.id);
+    setVerificationSuccessMessage(null);
+    try {
+      const regDocRef = doc(db, 'registrations', reg.id);
+      await updateDoc(regDocRef, {
+        paymentStatus: 'verified'
+      });
+
+      // Dispatch verified email containing final ticket details and activation receipt
+      await fetch('/api/send-payment-verified-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: reg.fullName,
+          email: reg.email,
+          registrationType: reg.registrationType,
+          ticketOption: reg.ticketOption,
+          exhibitorCategory: reg.exhibitorCategory,
+          ticketId: getTicketId(reg)
+        })
+      }).catch(emailErr => console.warn('Silent verification email failure:', emailErr));
+
+      // Update locally immediately
+      setRegistrations(prev => prev.map(r => r.id === reg.id ? { ...r, paymentStatus: 'verified' } : r));
+
+      // Update verify result state if active
+      if (verifyResult && verifyResult.id === reg.id) {
+        setVerifyResult(prev => prev ? { ...prev, paymentStatus: 'verified' } : null);
+      }
+
+      // Update detail modal selected reg if active
+      if (selectedReg && selectedReg.id === reg.id) {
+        setSelectedReg(prev => prev ? { ...prev, paymentStatus: 'verified' } : null);
+      }
+
+      setVerificationSuccessMessage(`Payment for ${reg.fullName} verified successfully, and ticket has been sent!`);
+      setTimeout(() => setVerificationSuccessMessage(null), 4500);
+    } catch (err) {
+      console.error("Firestore payment status update error:", err);
+      handleFirestoreError(err, OperationType.UPDATE, `registrations/${reg.id}`);
+    } finally {
+      setIsVerifyingPayment(null);
     }
   };
 
@@ -421,6 +533,18 @@ export function Dashboard({ onBack }: DashboardProps) {
             <Ticket className="w-4.5 h-4.5" />
             <span>Ticket Verification Center</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('email_logs')}
+            className={`pb-4 px-6 font-display font-semibold text-sm transition-all relative flex items-center gap-2 cursor-pointer ${
+              activeTab === 'email_logs' 
+                ? 'text-white border-b-2 border-accent' 
+                : 'text-white/45 hover:text-white/80'
+            }`}
+          >
+            <Mail className="w-4.5 h-4.5" />
+            <span>Email Delivery Logs</span>
+          </button>
         </div>
 
         {activeTab === 'list' ? (
@@ -496,6 +620,7 @@ export function Dashboard({ onBack }: DashboardProps) {
                         <th className="py-4.5 px-6">Attendee</th>
                         <th className="py-4.5 px-6">Company / Org</th>
                         <th className="py-4.5 px-6">Category</th>
+                        <th className="py-4.5 px-6">Payment</th>
                         <th className="py-4.5 px-6">Date Registered</th>
                         <th className="py-4.5 px-6 text-right">Actions</th>
                       </tr>
@@ -549,6 +674,26 @@ export function Dashboard({ onBack }: DashboardProps) {
                                 {reg.registrationType}
                               </span>
                             </td>
+                            <td className="py-4 px-6">
+                              {reg.registrationType === 'partner' ? (
+                                <span className="text-[10px] text-emerald-400/80 font-semibold font-mono uppercase tracking-wider bg-emerald-500/5 border border-emerald-500/10 px-2 py-0.5 rounded">Complimentary</span>
+                              ) : reg.paymentStatus === 'verified' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-500/15 border border-green-500/25 text-green-400 text-[9px] font-bold uppercase tracking-wider">
+                                  Paid
+                                </span>
+                              ) : (
+                                <div className="flex flex-col gap-1 items-start">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-yellow/15 border border-yellow/25 text-yellow text-[9px] font-bold uppercase tracking-wider">
+                                    Pending
+                                  </span>
+                                  {reg.paymentReference && (
+                                    <span className="text-[9px] font-mono text-white/40 truncate max-w-[110px]" title={`Ref: ${reg.paymentReference}`}>
+                                      Ref: {reg.paymentReference}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
                             <td className="py-4 px-6 text-sm text-white/60">
                               {formattedDate}
                             </td>
@@ -580,7 +725,7 @@ export function Dashboard({ onBack }: DashboardProps) {
 
             </div>
           </>
-        ) : (
+        ) : activeTab === 'verify' ? (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
@@ -865,16 +1010,56 @@ export function Dashboard({ onBack }: DashboardProps) {
                           <p className="text-gray-600 text-xs mt-0.5">{verifyResult.mobileNumber}</p>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-50">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Payment Status</p>
+                          {verifyResult.registrationType === 'partner' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-emerald-50 border border-emerald-150 text-emerald-600 font-bold text-[10px] uppercase mt-1">
+                              Complimentary
+                            </span>
+                          ) : verifyResult.paymentStatus === 'verified' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-green-50 border border-green-150 text-green-600 font-bold text-[10px] uppercase mt-1">
+                              Paid & Verified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-amber-50 border border-amber-150 text-amber-600 font-bold text-[10px] uppercase mt-1 animate-pulse">
+                              Payment Pending
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Payment Reference</p>
+                          <p className="font-mono text-gray-700 text-xs mt-1 font-semibold">
+                            {verifyResult.paymentReference || <em className="text-gray-400 font-normal">None submitted</em>}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Actions Bar Footer */}
-                  <div className="bg-gray-50 px-6 py-5 border-t border-gray-100 flex gap-3">
+                  <div className="bg-gray-50 px-6 py-5 border-t border-gray-100 flex flex-col gap-3">
+                    {verifyResult.registrationType !== 'partner' && verifyResult.paymentStatus !== 'verified' && (
+                      <button
+                        onClick={() => handleVerifyPayment(verifyResult)}
+                        disabled={isVerifyingPayment === verifyResult.id}
+                        className="w-full py-3 bg-accent hover:bg-accent/90 text-white font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-accent/10 active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {isVerifyingPayment === verifyResult.id ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        Verify Payment & Activate Ticket
+                      </button>
+                    )}
+
                     {verifyResult.checkedIn ? (
                       <button
                         onClick={() => handleCheckIn(verifyResult.id, false)}
                         disabled={isCheckingIn}
-                        className="flex-1 py-3 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                        className="w-full py-3 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                       >
                         {isCheckingIn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                         Undo Check-In
@@ -882,11 +1067,11 @@ export function Dashboard({ onBack }: DashboardProps) {
                     ) : (
                       <button
                         onClick={() => handleCheckIn(verifyResult.id, true)}
-                        disabled={isCheckingIn}
-                        className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-600/10 active:scale-[0.98] disabled:opacity-50"
+                        disabled={isCheckingIn || (verifyResult.registrationType !== 'partner' && verifyResult.paymentStatus !== 'verified')}
+                        className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-600/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
                       >
                         {isCheckingIn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                        Confirm Ticket & Check-In
+                        {verifyResult.registrationType !== 'partner' && verifyResult.paymentStatus !== 'verified' ? 'Cannot Check-In (Payment Pending)' : 'Confirm Ticket & Check-In'}
                       </button>
                     )}
                   </div>
@@ -920,6 +1105,128 @@ export function Dashboard({ onBack }: DashboardProps) {
                   <p className="text-white/45 mt-2 max-w-sm text-sm">
                     Enter a ticket number or click an attendee from the lookup list to execute a scan and check-in.
                   </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        ) : (
+          /* Email Delivery Logs Tab View */
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 15 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-6"
+          >
+            <div className="bg-primary-light/40 border border-white/10 rounded-3xl p-6 backdrop-blur-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-display font-bold text-lg text-white">Email Delivery Logs</h3>
+                <p className="text-white/50 text-xs mt-0.5">Real-time status of alerts and digital ticket dispatches</p>
+              </div>
+              <div className="flex gap-2.5">
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold font-mono text-white/70">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  STDOUT STREAMS LIVE
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-primary-light/30 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-sm shadow-xl">
+              {emailLogsLoading ? (
+                <div className="py-24 flex flex-col items-center justify-center">
+                  <RefreshCw className="w-8 h-8 text-accent animate-spin mb-4" />
+                  <p className="text-white/60 text-sm">Fetching dispatch logs from database...</p>
+                </div>
+              ) : emailLogs.length === 0 ? (
+                <div className="py-20 text-center px-6">
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Mail className="w-8 h-8 text-white/30" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">No email dispatches yet</h3>
+                  <p className="text-white/60 mt-1 max-w-md mx-auto text-sm">
+                    Once registrations are submitted or payments are verified, live SMTP logs will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-primary-light/50 text-[11px] font-bold uppercase tracking-wider text-white/40">
+                        <th className="py-4 px-6">Timestamp</th>
+                        <th className="py-4 px-6">Recipient</th>
+                        <th className="py-4 px-6">Event / Log Type</th>
+                        <th className="py-4 px-6">Delivery Status</th>
+                        <th className="py-4 px-6">Log Message / Error Details</th>
+                        <th className="py-4 px-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-sm text-white/85">
+                      {emailLogs.map((log) => {
+                        const dateStr = log.timestamp?.toDate 
+                          ? log.timestamp.toDate().toLocaleString() 
+                          : new Date(log.timestamp).toLocaleString();
+                        
+                        return (
+                          <tr key={log.id} className="hover:bg-white/5 transition-all">
+                            <td className="py-4 px-6 text-xs font-mono text-white/60 whitespace-nowrap">
+                              {dateStr}
+                            </td>
+                            <td className="py-4 px-6 font-semibold truncate max-w-[150px]" title={log.email}>
+                              {log.email || "admin@startupsummit.co.bw"}
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase font-mono border ${
+                                log.type === 'ADMIN_ALERT' 
+                                  ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' 
+                                  : log.type === 'TICKET_EMAIL' 
+                                  ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' 
+                                  : log.type === 'RETRY_ATTEMPT'
+                                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                              }`}>
+                                {log.type}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6">
+                              {log.status === 'success' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/15 border border-green-500/25 text-green-400 text-[10px] font-bold uppercase rounded">
+                                  Delivered
+                                </span>
+                              ) : log.status === 'simulated' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/15 border border-blue-500/25 text-blue-400 text-[10px] font-bold uppercase rounded" title="SMTP_PASS not set. Simulated.">
+                                  Simulated
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/15 border border-red-500/25 text-red-400 text-[10px] font-bold uppercase rounded">
+                                  Failed
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-4 px-6 text-xs text-white/50 max-w-[300px] truncate" title={log.error || log.message}>
+                              {log.error || log.message || "Email successfully dispatched."}
+                            </td>
+                            <td className="py-4 px-6 text-right">
+                              {log.email && log.email !== 'admin@startupsummit.co.bw' && (
+                                <button
+                                  onClick={async () => {
+                                    const matchingReg = registrations.find(r => r.email === log.email);
+                                    if (matchingReg) {
+                                      await handleResendTicket(matchingReg);
+                                    } else {
+                                      alert("Could not find matching registration to resend.");
+                                    }
+                                  }}
+                                  className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg font-bold transition-all hover:text-white"
+                                >
+                                  Resend
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -1088,6 +1395,67 @@ export function Dashboard({ onBack }: DashboardProps) {
                   </div>
                 </div>
 
+                {/* Payment Status Card inside Profile Details Modal */}
+                {selectedReg.registrationType !== 'partner' && (
+                  <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 border-b border-white/5 pb-2">Manual Payment Status</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <span className="text-xs text-white/50 block mb-0.5">Payment Status</span>
+                        {selectedReg.paymentStatus === 'verified' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold rounded-lg uppercase tracking-wider mt-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Paid & Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow/10 border border-yellow/20 text-yellow text-xs font-bold rounded-lg uppercase tracking-wider mt-1 animate-pulse">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            Awaiting Payment
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-xs text-white/50 block mb-0.5">Payment Reference</span>
+                        <span className="text-white font-mono font-semibold text-sm">
+                          {selectedReg.paymentReference || <em className="text-white/30 text-xs font-normal">No reference submitted yet</em>}
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedReg.paymentStatus === 'verified' ? (
+                      <div className="pt-3 border-t border-white/5">
+                        <button
+                          onClick={() => handleResendTicket(selectedReg)}
+                          disabled={isResendingEmail === selectedReg.id}
+                          className="w-full py-2.5 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isResendingEmail === selectedReg.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Mail className="w-3.5 h-3.5" />
+                          )}
+                          Resend Digital Ticket Email
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="pt-3 border-t border-white/5">
+                        <button
+                          onClick={() => handleVerifyPayment(selectedReg)}
+                          disabled={isVerifyingPayment === selectedReg.id}
+                          className="w-full py-2.5 px-4 bg-accent hover:bg-accent/90 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isVerifyingPayment === selectedReg.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          )}
+                          Approve Payment & Send Digital Ticket
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Exhibitor Details Conditional Block */}
                 {selectedReg.registrationType === 'exhibitor' && (
                   <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
@@ -1146,6 +1514,61 @@ export function Dashboard({ onBack }: DashboardProps) {
                       <span className="text-xs text-white/50 block">Partnership Objectives & Interests</span>
                       <p className="text-white/90 text-sm mt-1 bg-white/5 p-3 rounded-xl">{selectedReg.partnershipInterest || 'N/A'}</p>
                     </div>
+                  </div>
+                )}
+
+                {/* Partner Ticket Management inside Modal */}
+                {selectedReg.registrationType === 'partner' && (
+                  <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 border-b border-white/5 pb-2">VIP Partner Ticket Status</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <span className="text-xs text-white/50 block mb-0.5">Ticket Status</span>
+                        {selectedReg.paymentStatus === 'verified' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-lg uppercase tracking-wider mt-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Ticket Issued
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow/10 border border-yellow/20 text-yellow text-xs font-bold rounded-lg uppercase tracking-wider mt-1 animate-pulse">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            Awaiting Ticket Generation
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {selectedReg.paymentStatus === 'verified' ? (
+                      <div className="pt-3 border-t border-white/5">
+                        <button
+                          onClick={() => handleResendTicket(selectedReg)}
+                          disabled={isResendingEmail === selectedReg.id}
+                          className="w-full py-2.5 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isResendingEmail === selectedReg.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Mail className="w-3.5 h-3.5" />
+                          )}
+                          Resend VIP Partner Ticket
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="pt-3 border-t border-white/5">
+                        <button
+                          onClick={() => handleVerifyPayment(selectedReg)}
+                          disabled={isVerifyingPayment === selectedReg.id}
+                          className="w-full py-2.5 px-4 bg-accent hover:bg-accent/90 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isVerifyingPayment === selectedReg.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          )}
+                          Issue VIP Partner Ticket & Email
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

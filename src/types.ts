@@ -1,4 +1,5 @@
 export interface RegistrationData {
+  id?: string;
   fullName: string;
   company: string;
   role: string;
@@ -26,4 +27,9 @@ export interface RegistrationData {
   ticketId?: string;
   checkedIn?: boolean;
   checkedInAt?: any;
+
+  // Manual Payment Fields
+  paymentStatus?: 'pending' | 'verified' | 'free';
+  paymentReference?: string;
+  paymentSubmittedAt?: any;
 }

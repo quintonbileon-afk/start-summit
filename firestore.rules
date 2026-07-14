@@ -6,15 +6,34 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    match /registrations/{document} {
-      allow create: if true;
-      allow read, update, delete: if request.auth != null && (
+    function isAdmin() {
+      return request.auth != null && (
         request.auth.token.email == "quintonbileon@gmail.com" ||
         request.auth.token.email == "admin@startupsummit.bw" ||
         request.auth.token.email == "admin@startupsummit.co.bw" ||
         request.auth.uid == "xeEALxqzQtYJOD4fu05SDv15zts2" ||
         request.auth.uid == "tMHVaqQOo1TseOa8i6eiXMaGnm32"
       );
+    }
+
+    match /registrations/{document} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /email_logs/{document} {
+      allow create: if true;
+      allow read: if isAdmin();
+    }
+
+    match /email_queue/{document} {
+      allow create: if true;
+      allow read: if isAdmin();
+    }
+
+    match /tickets/{document} {
+      allow create: if true;
+      allow read: if isAdmin();
     }
   }
 }

@@ -73,10 +73,16 @@ export function Registration({ onSuccess }: RegistrationProps) {
           ...formData,
           ticketId,
           checkedIn: false,
+          paymentStatus: (formData.registrationType === 'partner' ? 'free' : 'pending') as 'pending' | 'free' | 'verified',
+          paymentReference: '',
           submittedAt: serverTimestamp()
         };
 
-        await addDoc(collection(db, 'registrations'), regDataToSave);
+        const docRef = await addDoc(collection(db, 'registrations'), regDataToSave);
+        const savedData = {
+          ...regDataToSave,
+          id: docRef.id
+        };
 
         // Trigger notification email dispatch non-blocking
         fetch('/api/send-registration-email', {
@@ -84,10 +90,10 @@ export function Registration({ onSuccess }: RegistrationProps) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(regDataToSave),
+          body: JSON.stringify(savedData),
         }).catch(emailError => console.warn('Silent email failure:', emailError));
 
-        onSuccess(regDataToSave);
+        onSuccess(savedData);
       } catch (error) {
         console.error('Registration save error:', error);
         setSubmitError('Failed to save registration to the database. Please check your internet connection and try again.');
