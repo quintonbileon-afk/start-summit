@@ -21,4 +21,9 @@ export interface RegistrationData {
   // Partner Specific
   partnershipCategory: string;
   partnershipInterest: string;
+
+  // Ticket Verification and Check-in Info
+  ticketId?: string;
+  checkedIn?: boolean;
+  checkedInAt?: any;
 }

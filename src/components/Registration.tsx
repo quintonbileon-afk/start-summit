@@ -68,10 +68,15 @@ export function Registration({ onSuccess }: RegistrationProps) {
       setIsSubmitting(true);
       setSubmitError(null);
       try {
-        await addDoc(collection(db, 'registrations'), {
+        const ticketId = `SSB26-${formData.fullName.replace(/\s+/g, '').substring(0, 5).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const regDataToSave = {
           ...formData,
+          ticketId,
+          checkedIn: false,
           submittedAt: serverTimestamp()
-        });
+        };
+
+        await addDoc(collection(db, 'registrations'), regDataToSave);
 
         // Trigger notification email dispatch non-blocking
         fetch('/api/send-registration-email', {
@@ -79,10 +84,10 @@ export function Registration({ onSuccess }: RegistrationProps) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(regDataToSave),
         }).catch(emailError => console.warn('Silent email failure:', emailError));
 
-        onSuccess(formData);
+        onSuccess(regDataToSave);
       } catch (error) {
         console.error('Registration save error:', error);
         setSubmitError('Failed to save registration to the database. Please check your internet connection and try again.');

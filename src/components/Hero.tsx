@@ -14,7 +14,7 @@ export function Hero() {
 
   useEffect(() => {
     const typeInterval = setInterval(() => {
-      setTypewriterIndex(prev => prev < 60 ? prev + 1 : prev);
+      setTypewriterIndex(prev => prev < 65 ? prev + 1 : prev);
     }, 50);
     return () => clearInterval(typeInterval);
   }, []);
@@ -77,19 +77,18 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-4xl md:text-5xl lg:text-7xl font-display font-bold tracking-tight leading-tight w-full"
           >
-            <span>{renderTypewriter("Is ", 0, typewriterIndex)}</span>
+            <span>{renderTypewriter("Why Do So Many ", 0, typewriterIndex)}</span>
+            {typewriterIndex > 15 && <br />}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-blue-300 italic font-extrabold pr-2 inline-block">
-              {renderTypewriter("entrepreneurship", 3, typewriterIndex)}
+              {renderTypewriter("Botswana Startups", 15, typewriterIndex)}
             </span>
-            {typewriterIndex > 19 && <br className="hidden md:block" />}
-            <span>{renderTypewriter(" the answer to ", 19, typewriterIndex)}</span>
-            {typewriterIndex > 34 && <br className="md:hidden" />}
+            <span>{renderTypewriter(" Fail, and", 32, typewriterIndex)}</span>
+            {typewriterIndex > 42 && <br />}
             <span className="text-yellow relative inline-block">
-              {renderTypewriter("Botswana's", 34, typewriterIndex)}
-              {typewriterIndex >= 44 && <span className="absolute -bottom-2 left-0 w-full h-1 bg-yellow/50 rounded-full"></span>}
+              {renderTypewriter("What Must Change", 42, typewriterIndex)}
+              {typewriterIndex >= 58 && <span className="absolute -bottom-2 left-0 w-full h-1 bg-yellow/50 rounded-full"></span>}
             </span>
-            <span>{renderTypewriter(" unemployment", 44, typewriterIndex)}</span>
-            {typewriterIndex > 57 ? (
+            {typewriterIndex > 58 ? (
               <span className="animate-blink">?</span>
             ) : (
               <span className="animate-blink opacity-70 ml-1">|</span>

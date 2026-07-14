@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, Briefcase, Award, Search, Filter, Download, Trash2, 
   ExternalLink, Calendar, MapPin, Mail, Phone, ChevronRight, X,
-  ArrowLeft, RefreshCw, Layers, CheckCircle2, AlertTriangle, Play, LogOut
+  ArrowLeft, RefreshCw, Layers, CheckCircle2, AlertTriangle, Play, LogOut,
+  Ticket, Check, QrCode, UserCheck, AlertCircle, Laptop, Tablet
 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
-import { collection, query, orderBy, getDocs, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { RegistrationData } from '../types';
 import { AdminLogin } from './AdminLogin';
@@ -31,6 +32,91 @@ export function Dashboard({ onBack }: DashboardProps) {
   const [isLiveSync, setIsLiveSync] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Ticket Verification & Check-in states
+  const [activeTab, setActiveTab] = useState<'list' | 'verify'>('list');
+  const [verifyQuery, setVerifyQuery] = useState('');
+  const [verifyResult, setVerifyResult] = useState<FirebaseRegistration | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [verificationSuccessMessage, setVerificationSuccessMessage] = useState<string | null>(null);
+  const [verifySearchTerm, setVerifySearchTerm] = useState('');
+
+  // Computes or retrieves a stable ticket number for any registration
+  const getTicketId = (reg: FirebaseRegistration): string => {
+    if (reg.ticketId) return reg.ticketId;
+    const namePart = (reg.fullName || '').replace(/\s+/g, '').substring(0, 5).toUpperCase();
+    let hash = 0;
+    const str = reg.id || '';
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const lastFour = Math.abs(hash % 9000) + 1000;
+    return `SSB26-${namePart}-${lastFour}`;
+  };
+
+  // Perform Verification by Ticket ID
+  const handleVerify = (ticketNum: string) => {
+    const trimmed = ticketNum.trim().toUpperCase();
+    if (!trimmed) {
+      setVerifyResult(null);
+      setVerifyError(null);
+      return;
+    }
+
+    const found = registrations.find(reg => {
+      const id = getTicketId(reg).toUpperCase();
+      return id === trimmed;
+    });
+
+    if (found) {
+      setVerifyResult(found);
+      setVerifyError(null);
+    } else {
+      setVerifyResult(null);
+      setVerifyError("Ticket number not found. Verify format (e.g. SSB26-XXXXX-YYYY) or try searching by name in the registrations list.");
+    }
+  };
+
+  // Perform Check-in or Undo Check-in
+  const handleCheckIn = async (regId: string, status: boolean) => {
+    setIsCheckingIn(true);
+    setVerificationSuccessMessage(null);
+    try {
+      const regDocRef = doc(db, 'registrations', regId);
+      const checkedInAtVal = status ? new Date() : null;
+      
+      await updateDoc(regDocRef, {
+        checkedIn: status,
+        checkedInAt: checkedInAtVal
+      });
+
+      // Update locally immediately
+      setRegistrations(prev => prev.map(r => 
+        r.id === regId 
+          ? { ...r, checkedIn: status, checkedInAt: checkedInAtVal ? { toDate: () => checkedInAtVal } : null } 
+          : r
+      ));
+
+      // Update verify result state
+      if (verifyResult && verifyResult.id === regId) {
+        setVerifyResult(prev => prev ? { ...prev, checkedIn: status, checkedInAt: checkedInAtVal ? { toDate: () => checkedInAtVal } : null } : null);
+      }
+
+      // Update detail modal selected reg if active
+      if (selectedReg && selectedReg.id === regId) {
+        setSelectedReg(prev => prev ? { ...prev, checkedIn: status, checkedInAt: checkedInAtVal ? { toDate: () => checkedInAtVal } : null } : null);
+      }
+
+      setVerificationSuccessMessage(status ? "Attendee checked in successfully!" : "Check-in undone successfully!");
+      setTimeout(() => setVerificationSuccessMessage(null), 4000);
+    } catch (err) {
+      console.error("Check-in Firestore update error:", err);
+      handleFirestoreError(err, OperationType.UPDATE, `registrations/${regId}`);
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
 
   // Monitor Authentication State
   useEffect(() => {
@@ -310,155 +396,535 @@ export function Dashboard({ onBack }: DashboardProps) {
 
         </div>
 
-        {/* Filter and Search Controls */}
-        <div className="bg-primary-light/40 border border-white/10 rounded-3xl p-5 mb-8 backdrop-blur-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-white/10 mb-8 gap-2">
+          <button
+            onClick={() => setActiveTab('list')}
+            className={`pb-4 px-6 font-display font-semibold text-sm transition-all relative flex items-center gap-2 cursor-pointer ${
+              activeTab === 'list' 
+                ? 'text-white border-b-2 border-accent' 
+                : 'text-white/45 hover:text-white/80'
+            }`}
+          >
+            <Users className="w-4.5 h-4.5" />
+            <span>Registrations List</span>
+          </button>
           
-          {/* Search bar */}
-          <div className="relative w-full md:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 w-5 h-5" />
-            <input 
-              type="text" 
-              placeholder="Search by name, email, role or company..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-primary/60 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white placeholder-white/40 focus:outline-none focus:border-accent/50 text-sm transition-all"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Filter Categories */}
-          <div className="flex flex-wrap gap-2 w-full md:w-auto justify-start md:justify-end">
-            <span className="text-xs font-bold uppercase tracking-wider text-white/40 self-center mr-2 hidden lg:inline">Filter By:</span>
-            {(['all', 'attendant', 'exhibitor', 'partner'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                  filterType === type 
-                    ? 'bg-accent text-white shadow-lg shadow-accent/10' 
-                    : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                {type === 'all' ? 'All entries' : type + 's'}
-              </button>
-            ))}
-          </div>
-
+          <button
+            onClick={() => setActiveTab('verify')}
+            className={`pb-4 px-6 font-display font-semibold text-sm transition-all relative flex items-center gap-2 cursor-pointer ${
+              activeTab === 'verify' 
+                ? 'text-white border-b-2 border-accent' 
+                : 'text-white/45 hover:text-white/80'
+            }`}
+          >
+            <Ticket className="w-4.5 h-4.5" />
+            <span>Ticket Verification Center</span>
+          </button>
         </div>
 
-        {/* Entries Table & Card List */}
-        <div className="bg-primary-light/30 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-sm shadow-xl">
-          
-          {loading ? (
-            <div className="py-24 flex flex-col items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-accent animate-spin mb-4" />
-              <p className="text-white/60 text-sm">Loading registrations from database...</p>
-            </div>
-          ) : filteredRegs.length === 0 ? (
-            <div className="py-20 text-center px-6">
-              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-8 h-8 text-white/30" />
+        {activeTab === 'list' ? (
+          <>
+            {/* Filter and Search Controls */}
+            <div className="bg-primary-light/40 border border-white/10 rounded-3xl p-5 mb-8 backdrop-blur-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+              
+              {/* Search bar */}
+              <div className="relative w-full md:max-w-md">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 w-5 h-5" />
+                <input 
+                  type="text" 
+                  placeholder="Search by name, email, role or company..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-primary/60 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-white placeholder-white/40 focus:outline-none focus:border-accent/50 text-sm transition-all"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              <h3 className="text-xl font-bold text-white">No registrations found</h3>
-              <p className="text-white/60 mt-1 max-w-md mx-auto text-sm">
-                {searchQuery || filterType !== 'all' 
-                  ? "We couldn't find any entries matching your current search or filter criteria."
-                  : "No registrations have been submitted yet. Go fill the registration form to see your submission here!"}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-white/10 bg-primary-light/50 text-[11px] font-bold uppercase tracking-wider text-white/40">
-                    <th className="py-4.5 px-6">Attendee</th>
-                    <th className="py-4.5 px-6">Company / Org</th>
-                    <th className="py-4.5 px-6">Category</th>
-                    <th className="py-4.5 px-6">Date Registered</th>
-                    <th className="py-4.5 px-6 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {filteredRegs.map((reg) => {
-                    const formattedDate = reg.submittedAt?.toDate 
-                      ? reg.submittedAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
-                      : 'Just now';
 
-                    return (
-                      <tr 
-                        key={reg.id}
-                        className="hover:bg-white/5 transition-colors cursor-pointer group"
-                        onClick={() => setSelectedReg(reg)}
-                      >
-                        <td className="py-4 px-6">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-white group-hover:text-accent transition-colors">
-                              {reg.fullName}
-                            </span>
-                            <span className="text-xs text-white/55 font-mono mt-0.5">
-                              {reg.email}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <div className="flex flex-col">
-                            <span className="text-white/95 font-semibold text-sm">
-                              {reg.company || 'Individual'}
-                            </span>
-                            <span className="text-xs text-white/55 mt-0.5">
-                              {reg.role || 'N/A'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            reg.registrationType === 'attendant' 
-                              ? 'bg-yellow/10 text-yellow' 
-                              : reg.registrationType === 'exhibitor' 
-                              ? 'bg-purple-500/10 text-purple-400' 
-                              : 'bg-emerald-500/10 text-emerald-400'
-                          }`}>
-                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                            {reg.registrationType}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-sm text-white/60">
-                          {formattedDate}
-                        </td>
-                        <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => setSelectedReg(reg)}
-                              className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white transition-all"
-                              title="View details"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteId(reg.id)}
-                              className="p-2 hover:bg-red-500/10 rounded-lg text-white/40 hover:text-red-400 transition-all"
-                              title="Delete registration"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
+              {/* Filter Categories */}
+              <div className="flex flex-wrap gap-2 w-full md:w-auto justify-start md:justify-end">
+                <span className="text-xs font-bold uppercase tracking-wider text-white/40 self-center mr-2 hidden lg:inline">Filter By:</span>
+                {(['all', 'attendant', 'exhibitor', 'partner'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                      filterType === type 
+                        ? 'bg-accent text-white shadow-lg shadow-accent/10' 
+                        : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {type === 'all' ? 'All entries' : type + 's'}
+                  </button>
+                ))}
+              </div>
+
+            </div>
+
+            {/* Entries Table & Card List */}
+            <div className="bg-primary-light/30 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-sm shadow-xl">
+              
+              {loading ? (
+                <div className="py-24 flex flex-col items-center justify-center">
+                  <RefreshCw className="w-8 h-8 text-accent animate-spin mb-4" />
+                  <p className="text-white/60 text-sm">Loading registrations from database...</p>
+                </div>
+              ) : filteredRegs.length === 0 ? (
+                <div className="py-20 text-center px-6">
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle className="w-8 h-8 text-white/30" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">No registrations found</h3>
+                  <p className="text-white/60 mt-1 max-w-md mx-auto text-sm">
+                    {searchQuery || filterType !== 'all' 
+                      ? "We couldn't find any entries matching your current search or filter criteria."
+                      : "No registrations have been submitted yet. Go fill the registration form to see your submission here!"}
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-primary-light/50 text-[11px] font-bold uppercase tracking-wider text-white/40">
+                        <th className="py-4.5 px-6">Attendee</th>
+                        <th className="py-4.5 px-6">Company / Org</th>
+                        <th className="py-4.5 px-6">Category</th>
+                        <th className="py-4.5 px-6">Date Registered</th>
+                        <th className="py-4.5 px-6 text-right">Actions</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredRegs.map((reg) => {
+                        const formattedDate = reg.submittedAt?.toDate 
+                          ? reg.submittedAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
+                          : 'Just now';
 
-        </div>
+                        return (
+                          <tr 
+                            key={reg.id}
+                            className="hover:bg-white/5 transition-colors cursor-pointer group"
+                            onClick={() => setSelectedReg(reg)}
+                          >
+                            <td className="py-4 px-6">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-white group-hover:text-accent transition-colors flex items-center gap-2">
+                                  {reg.fullName}
+                                  {reg.checkedIn && (
+                                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-green-500/15 border border-green-500/25 text-green-400 text-[9px] font-bold uppercase tracking-wider">
+                                      Checked In
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="text-xs text-white/55 font-mono mt-0.5">
+                                  {reg.email}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <div className="flex flex-col">
+                                <span className="text-white/95 font-semibold text-sm">
+                                  {reg.company || 'Individual'}
+                                </span>
+                                <span className="text-xs text-white/55 mt-0.5">
+                                  {reg.role || 'N/A'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                reg.registrationType === 'attendant' 
+                                  ? 'bg-yellow/10 text-yellow' 
+                                  : reg.registrationType === 'exhibitor' 
+                                  ? 'bg-purple-500/10 text-purple-400' 
+                                  : 'bg-emerald-500/10 text-emerald-400'
+                              }`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                {reg.registrationType}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-sm text-white/60">
+                              {formattedDate}
+                            </td>
+                            <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setSelectedReg(reg)}
+                                  className="p-2 hover:bg-white/10 rounded-lg text-white/60 hover:text-white transition-all"
+                                  title="View details"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setDeleteId(reg.id)}
+                                  className="p-2 hover:bg-red-500/10 rounded-lg text-white/40 hover:text-red-400 transition-all"
+                                  title="Delete registration"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+            </div>
+          </>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 15 }}
+            transition={{ duration: 0.4 }}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+          >
+            {/* Left Column: Input Panel & Lookup */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Manual Ticket ID Form */}
+              <div className="bg-primary-light/40 border border-white/10 rounded-3xl p-6 backdrop-blur-sm shadow-xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-accent/10 text-accent rounded-xl">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-lg text-white">Ticket Verification</h3>
+                    <p className="text-white/50 text-xs mt-0.5">Enter ticket number to verify attendance</p>
+                  </div>
+                </div>
+
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleVerify(verifyQuery);
+                  }}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-white/40 mb-2">
+                      Ticket Number
+                    </label>
+                    <div className="relative">
+                      <Ticket className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 w-5 h-5" />
+                      <input 
+                        type="text" 
+                        placeholder="e.g. SSB26-JANED-1234"
+                        value={verifyQuery}
+                        onChange={(e) => {
+                          const val = e.target.value.toUpperCase();
+                          setVerifyQuery(val);
+                          // Auto-verify as they type if it has the correct length or format
+                          if (val.trim().length >= 12) {
+                            const trimmed = val.trim();
+                            const found = registrations.find(reg => getTicketId(reg).toUpperCase() === trimmed);
+                            if (found) {
+                              setVerifyResult(found);
+                              setVerifyError(null);
+                            }
+                          }
+                        }}
+                        className="w-full bg-primary/60 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-white placeholder-white/30 focus:outline-none focus:border-accent font-mono text-sm tracking-wider uppercase transition-all"
+                      />
+                    </div>
+                    <span className="text-[10px] text-white/40 mt-1.5 block font-mono">
+                      Format: SSB26-[NAME5]-[RAND4] (e.g. SSB26-QUINT-4103)
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2.5">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-accent hover:bg-accent/90 text-white font-bold py-3 px-5 rounded-xl text-sm transition-all shadow-lg shadow-accent/15 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      Verify Ticket
+                    </button>
+                    {verifyQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVerifyQuery('');
+                          setVerifyResult(null);
+                          setVerifyError(null);
+                        }}
+                        className="px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm transition-all cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Quick Attendee Lookup (Search by Name/Email) */}
+              <div className="bg-primary-light/30 border border-white/5 rounded-3xl p-6 backdrop-blur-sm">
+                <div className="mb-4">
+                  <h4 className="font-display font-bold text-sm text-white">Attendee Lookup (Helper)</h4>
+                  <p className="text-white/40 text-xs mt-0.5">Search by name/email to retrieve ticket IDs instantly</p>
+                </div>
+
+                <div className="relative mb-4">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 w-4 h-4" />
+                  <input 
+                    type="text" 
+                    placeholder="Search name, email, company..."
+                    value={verifySearchTerm}
+                    onChange={(e) => setVerifySearchTerm(e.target.value)}
+                    className="w-full bg-primary/40 border border-white/5 rounded-xl py-2 px-10 text-xs text-white placeholder-white/30 focus:outline-none focus:border-accent/40 transition-all"
+                  />
+                  {verifySearchTerm && (
+                    <button 
+                      onClick={() => setVerifySearchTerm('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-[220px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                  {registrations
+                    .filter(reg => {
+                      if (!verifySearchTerm.trim()) return true;
+                      const search = verifySearchTerm.toLowerCase();
+                      return (
+                        reg.fullName?.toLowerCase().includes(search) ||
+                        reg.email?.toLowerCase().includes(search) ||
+                        reg.company?.toLowerCase().includes(search)
+                      );
+                    })
+                    .slice(0, 10)
+                    .map((reg) => {
+                      const ticketId = getTicketId(reg);
+                      return (
+                        <button
+                          key={reg.id}
+                          onClick={() => {
+                            setVerifyQuery(ticketId);
+                            setVerifyResult(reg);
+                            setVerifyError(null);
+                          }}
+                          className={`w-full text-left p-3 rounded-xl border text-xs transition-all flex items-center justify-between cursor-pointer ${
+                            verifyQuery === ticketId 
+                              ? 'bg-accent/15 border-accent/30 text-white' 
+                              : 'bg-white/5 border-transparent text-white/70 hover:bg-white/10 hover:border-white/5'
+                          }`}
+                        >
+                          <div className="flex flex-col gap-0.5 max-w-[65%]">
+                            <span className="font-bold truncate text-white">{reg.fullName}</span>
+                            <span className="text-[10px] text-white/40 truncate font-mono">{ticketId}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {reg.checkedIn ? (
+                              <span className="px-2 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-green-400 font-bold text-[8px] uppercase tracking-wider">
+                                Checked In
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-yellow/10 border border-yellow/20 text-yellow font-bold text-[8px] uppercase tracking-wider">
+                                Ready
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  {registrations.length === 0 && (
+                    <p className="text-white/30 text-xs text-center py-4">No records found.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Live Verification Card */}
+            <div className="lg:col-span-7">
+              {verificationSuccessMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-4 p-4 bg-green-500/15 border border-green-500/30 text-green-400 rounded-2xl flex items-center gap-2 text-sm font-semibold"
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                  {verificationSuccessMessage}
+                </motion.div>
+              )}
+
+              {verifyResult ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-white text-primary rounded-3xl overflow-hidden shadow-2xl border border-gray-100 flex flex-col relative"
+                >
+                  {/* Decorative Ticket tear-off circles */}
+                  <div className="absolute left-0 w-6 h-6 bg-primary rounded-full -translate-x-1/2 top-[96px] z-10"></div>
+                  <div className="absolute right-0 w-6 h-6 bg-primary rounded-full translate-x-1/2 top-[96px] z-10"></div>
+
+                  {/* Header */}
+                  <div className="bg-primary p-6 text-center text-white relative">
+                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-accent via-yellow to-accent"></div>
+                    <p className="text-accent font-semibold text-xs tracking-widest uppercase">BOTSWANA START-UP SUMMIT 2026</p>
+                    <h3 className="font-display font-bold text-xl mt-1 tracking-tight">TICKET VERIFICATION PASSED</h3>
+                  </div>
+
+                  <div className="border-t-2 border-dashed border-gray-200 mx-6 mt-[2px]"></div>
+
+                  {/* Body Details */}
+                  <div className="p-6 flex-1 space-y-6">
+                    {/* Check-In Status Hero */}
+                    <div className="flex flex-col items-center justify-center py-4 border-b border-gray-100">
+                      {verifyResult.checkedIn ? (
+                        <div className="flex flex-col items-center text-center">
+                          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-3">
+                            <CheckCircle2 className="w-9 h-9" />
+                          </div>
+                          <span className="px-4 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-600 font-bold text-xs uppercase tracking-wider">
+                            Verified & Checked In
+                          </span>
+                          {verifyResult.checkedInAt && (
+                            <span className="text-[11px] text-gray-400 mt-2 font-medium">
+                              Checked in on: {verifyResult.checkedInAt.toDate ? verifyResult.checkedInAt.toDate().toLocaleString() : new Date(verifyResult.checkedInAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center text-center">
+                          <div className="w-16 h-16 bg-yellow-100 text-yellow rounded-full flex items-center justify-center mb-3">
+                            <AlertCircle className="w-9 h-9" />
+                          </div>
+                          <span className="px-4 py-1.5 rounded-full bg-yellow-50 border border-yellow-200 text-yellow font-bold text-xs uppercase tracking-wider">
+                            Valid Ticket - Ready for Entrance
+                          </span>
+                          <span className="text-[11px] text-gray-400 mt-2 font-medium">
+                            Status: Awaiting Event Arrival
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Registration Details Grid */}
+                    <div className="space-y-4 text-primary-light">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Attendee Name</p>
+                          <p className="font-bold text-gray-800 text-base mt-0.5">{verifyResult.fullName}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Ticket Number</p>
+                          <p className="font-mono font-bold text-accent text-sm mt-0.5">{getTicketId(verifyResult)}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-50">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Organization / Business</p>
+                          <p className="font-semibold text-gray-700 text-sm mt-0.5">{verifyResult.company || 'Individual'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Role / Title</p>
+                          <p className="font-medium text-gray-600 text-sm mt-0.5">{verifyResult.role || 'Attendee'}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-50">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Registration Type</p>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase mt-1 tracking-wider ${
+                            verifyResult.registrationType === 'attendant' 
+                              ? 'bg-yellow-50 border border-yellow-200 text-yellow' 
+                              : verifyResult.registrationType === 'exhibitor' 
+                              ? 'bg-purple-50 border border-purple-200 text-purple-600' 
+                              : 'bg-emerald-50 border border-emerald-200 text-emerald-600'
+                          }`}>
+                            {verifyResult.registrationType}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Category / Tier</p>
+                          <p className="font-semibold text-gray-800 text-xs mt-1 capitalize">
+                            {verifyResult.ticketOption || verifyResult.exhibitorCategory || verifyResult.partnershipCategory || 'Standard'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-50">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Email Address</p>
+                          <p className="text-gray-600 text-xs truncate mt-0.5">{verifyResult.email}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Mobile Number</p>
+                          <p className="text-gray-600 text-xs mt-0.5">{verifyResult.mobileNumber}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Bar Footer */}
+                  <div className="bg-gray-50 px-6 py-5 border-t border-gray-100 flex gap-3">
+                    {verifyResult.checkedIn ? (
+                      <button
+                        onClick={() => handleCheckIn(verifyResult.id, false)}
+                        disabled={isCheckingIn}
+                        className="flex-1 py-3 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isCheckingIn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                        Undo Check-In
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleCheckIn(verifyResult.id, true)}
+                        disabled={isCheckingIn}
+                        className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-600/10 active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {isCheckingIn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        Confirm Ticket & Check-In
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ) : verifyError ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-red-500/10 border border-red-500/20 rounded-3xl p-8 flex flex-col items-center text-center shadow-xl backdrop-blur-sm"
+                >
+                  <div className="w-14 h-14 bg-red-500/10 text-red-400 rounded-full flex items-center justify-center mb-4">
+                    <AlertCircle className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-2">Ticket Verification Failed</h3>
+                  <p className="text-white/60 text-sm max-w-md leading-relaxed">
+                    {verifyError}
+                  </p>
+                  <div className="mt-6 p-4 bg-white/5 border border-white/5 rounded-2xl text-left w-full text-xs space-y-2 text-white/50 font-mono">
+                    <p className="font-bold text-white/80">Verification Tips:</p>
+                    <p>• Make sure the prefix is capitalized: <span className="text-accent font-bold">SSB26-</span></p>
+                    <p>• Ticket numbers are case-insensitive but must contain the correct letters and numbers.</p>
+                    <p>• If the ticket cannot be found, use the <span className="text-accent font-bold">Attendee Lookup helper</span> below the form to search by name/email.</p>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="border-2 border-dashed border-white/10 rounded-3xl p-16 flex flex-col items-center text-center justify-center min-h-[400px]">
+                  <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 text-white/30 animate-pulse animate-duration-3000">
+                    <Ticket className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white/85">Awaiting Live Verification</h3>
+                  <p className="text-white/45 mt-2 max-w-sm text-sm">
+                    Enter a ticket number or click an attendee from the lookup list to execute a scan and check-in.
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
 
       </div>
 
@@ -565,6 +1031,61 @@ export function Dashboard({ onBack }: DashboardProps) {
                       <span className="text-white/90 text-sm mt-1 block bg-yellow/5 border border-yellow/10 p-3 rounded-xl">{selectedReg.specialRequirements}</span>
                     </div>
                   )}
+                </div>
+
+                {/* Ticket Verification Status Card inside Profile Details Modal */}
+                <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 border-b border-white/5 pb-2">Ticket Info & Check-in</h4>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-xs text-white/50 block mb-0.5">Ticket Number / Ticket ID</span>
+                      <span className="text-accent font-mono font-bold text-sm bg-white/5 px-2.5 py-1 rounded-lg border border-white/10 inline-block">
+                        {getTicketId(selectedReg)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-white/50 block mb-1">Attendance Status</span>
+                      {selectedReg.checkedIn ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold rounded-lg uppercase tracking-wider">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Checked In
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow/10 border border-yellow/20 text-yellow text-xs font-bold rounded-lg uppercase tracking-wider">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          Ready for Check-In
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedReg.checkedIn && selectedReg.checkedInAt && (
+                    <div className="text-xs text-white/40 font-semibold mt-1">
+                      Checked in at: {selectedReg.checkedInAt?.toDate ? selectedReg.checkedInAt.toDate().toLocaleString() : new Date(selectedReg.checkedInAt).toLocaleString()}
+                    </div>
+                  )}
+
+                  <div className="pt-3 border-t border-white/5 flex gap-2">
+                    {selectedReg.checkedIn ? (
+                      <button
+                        onClick={() => handleCheckIn(selectedReg.id, false)}
+                        disabled={isCheckingIn}
+                        className="flex-1 py-2.5 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isCheckingIn ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                        Undo Check-In
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleCheckIn(selectedReg.id, true)}
+                        disabled={isCheckingIn}
+                        className="flex-1 py-2.5 px-4 bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/30 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isCheckingIn ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        Check-In Attendee
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Exhibitor Details Conditional Block */}

@@ -17,7 +17,7 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
 
   if (!data) return null;
 
-  const ticketId = `SSB26-${data.fullName.replace(/\s+/g, '').substring(0, 5).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const ticketId = data.ticketId || `SSB26-${data.fullName.replace(/\s+/g, '').substring(0, 5).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const qrData = JSON.stringify({ name: data.fullName, email: data.email, ticketId });
 
   const captureTicket = async (): Promise<string | null> => {
