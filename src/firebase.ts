@@ -2,30 +2,114 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
-// Fetch config from server dynamically without any VITE_ prefix variables
-const configResponse = await fetch('/api/config');
-const serverConfig = await configResponse.json();
-
-const firebaseConfig = {
-  apiKey: serverConfig.apiKey,
-  authDomain: serverConfig.authDomain,
-  projectId: serverConfig.projectId,
-  storageBucket: serverConfig.storageBucket,
-  messagingSenderId: serverConfig.messagingSenderId,
-  appId: serverConfig.appId
+// Detect environment configuration
+const getStaticEnv = () => {
+  return {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    databaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_DATABASE_ID,
+  };
 };
 
+const getProcessEnv = () => {
+  const gEnv = (typeof process !== 'undefined' && process.env) ? process.env : {};
+  return {
+    apiKey: gEnv.NEXT_PUBLIC_FIREBASE_API_KEY || gEnv.FIREBASE_API_KEY,
+    authDomain: gEnv.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || gEnv.FIREBASE_AUTH_DOMAIN,
+    projectId: gEnv.NEXT_PUBLIC_FIREBASE_PROJECT_ID || gEnv.FIREBASE_PROJECT_ID,
+    storageBucket: gEnv.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || gEnv.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: gEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || gEnv.FIREBASE_MESSAGING_SENDER_ID,
+    appId: gEnv.NEXT_PUBLIC_FIREBASE_APP_ID || gEnv.FIREBASE_APP_ID,
+    databaseId: gEnv.NEXT_PUBLIC_FIREBASE_DATABASE_ID || gEnv.FIREBASE_DATABASE_ID,
+  };
+};
+
+const staticEnv = getStaticEnv();
+const processEnv = getProcessEnv();
+
+const finalConfig = {
+  apiKey: staticEnv.apiKey || processEnv.apiKey || "",
+  authDomain: staticEnv.authDomain || processEnv.authDomain || "",
+  projectId: staticEnv.projectId || processEnv.projectId || "",
+  storageBucket: staticEnv.storageBucket || processEnv.storageBucket || "",
+  messagingSenderId: staticEnv.messagingSenderId || processEnv.messagingSenderId || "",
+  appId: staticEnv.appId || processEnv.appId || "",
+  databaseId: staticEnv.databaseId || processEnv.databaseId || "",
+  adminEmail: "admin@startupsummit.co.bw",
+  adminPassword: "YOUR_ADMIN_PASSWORD"
+};
+
+const requiredKeys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+const hasAllEnvKeys = requiredKeys.every(k => !!(finalConfig as any)[k]);
+
+let isFirebaseConfigured = true;
+let configErrorMessage = "";
+
+if (!hasAllEnvKeys) {
+  try {
+    console.log("[Firebase] Environment variables not fully loaded. Attempting fallback: fetching /api/config...");
+    const configResponse = await fetch('/api/config');
+    if (!configResponse.ok) {
+      throw new Error(`HTTP status ${configResponse.status}`);
+    }
+    const serverConfig = await configResponse.json();
+    
+    finalConfig.apiKey = finalConfig.apiKey || serverConfig.apiKey || "";
+    finalConfig.authDomain = finalConfig.authDomain || serverConfig.authDomain || "";
+    finalConfig.projectId = finalConfig.projectId || serverConfig.projectId || "";
+    finalConfig.storageBucket = finalConfig.storageBucket || serverConfig.storageBucket || "";
+    finalConfig.messagingSenderId = finalConfig.messagingSenderId || serverConfig.messagingSenderId || "";
+    finalConfig.appId = finalConfig.appId || serverConfig.appId || "";
+    finalConfig.databaseId = finalConfig.databaseId || serverConfig.databaseId || "";
+    if (serverConfig.adminEmail) finalConfig.adminEmail = serverConfig.adminEmail;
+    if (serverConfig.adminPassword) finalConfig.adminPassword = serverConfig.adminPassword;
+  } catch (error: any) {
+    console.warn("[Firebase] Could not fetch config from /api/config:", error);
+    isFirebaseConfigured = false;
+    configErrorMessage = `Firebase client-side configuration variables are not set.
+Vercel deployment needs these configured in your dashboard or .env.local file.
+The fallback /api/config also failed: ${error.message || error}`;
+  }
+}
+
+// Final configuration check
+const finalHasAllKeys = requiredKeys.every(k => !!(finalConfig as any)[k]);
+if (!finalHasAllKeys) {
+  isFirebaseConfigured = false;
+  const missingKeys = requiredKeys.filter(k => !(finalConfig as any)[k]);
+  configErrorMessage = `Firebase is missing the following required keys: ${missingKeys.join(', ')}. 
+Please configure them in your .env.local, Vercel Environment Variables, or ensure the backend server is running and /api/config is accessible.`;
+}
+
+const dummyConfig = {
+  apiKey: "AIzaSyDummyKey_PleaseConfigureEnvironmentVariables",
+  authDomain: "dummy-project.firebaseapp.com",
+  projectId: "dummy-project",
+  storageBucket: "dummy-project.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:dummy",
+  databaseId: ""
+};
+
+const activeConfig = isFirebaseConfigured ? finalConfig : dummyConfig;
+
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(activeConfig);
 
 // Initialize Cloud Firestore with the correct database ID
-const dbId = serverConfig.databaseId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
+const dbId = activeConfig.databaseId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
 export const db = getFirestore(app, dbId);
 export const auth = getAuth(app);
 
 // Pre-seed admin credentials
-export const ADMIN_EMAIL = serverConfig.adminEmail || 'admin@startupsummit.co.bw';
-export const ADMIN_PASSWORD = serverConfig.adminPassword || 'YOUR_ADMIN_PASSWORD';
+export const ADMIN_EMAIL = finalConfig.adminEmail || 'admin@startupsummit.co.bw';
+export const ADMIN_PASSWORD = finalConfig.adminPassword || 'YOUR_ADMIN_PASSWORD';
+
+export { isFirebaseConfigured, configErrorMessage };
 
 // Helper to seed the admin user if they do not exist
 export async function seedAdminUser() {
