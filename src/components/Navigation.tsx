@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Sun, Moon, LayoutDashboard, Home } from 'lucide-react';
 import logoUrl from '../assets/images/startup_summit.png';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 interface NavigationProps {
   onNavigateToAdmin?: () => void;
@@ -11,6 +14,7 @@ interface NavigationProps {
 export function Navigation({ onNavigateToAdmin, onNavigateToLanding, currentView = 'landing' }: NavigationProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('light') ? 'light' : 'dark';
@@ -24,6 +28,30 @@ export function Navigation({ onNavigateToAdmin, onNavigateToLanding, currentView
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Sync pending registrations
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const q = query(
+          collection(db, 'registrations'),
+          where('paymentStatus', '==', 'pending')
+        );
+        const unsubscribeSnap = onSnapshot(q, (snapshot) => {
+          setPendingCount(snapshot.size);
+        }, (error) => {
+          console.log("No auth/permission or offline for registrations badge:", error.message);
+          setPendingCount(0);
+        });
+        return () => {
+          unsubscribeSnap();
+        };
+      } else {
+        setPendingCount(0);
+      }
+    });
+    return () => unsubscribeAuth();
   }, []);
 
   const toggleTheme = () => {
@@ -93,13 +121,24 @@ export function Navigation({ onNavigateToAdmin, onNavigateToLanding, currentView
               href={link.href} 
               onClick={(e) => handleLinkClick(e, link)}
               title={'title' in link ? link.title : undefined}
-              className={`text-sm font-semibold transition-all flex items-center ${
+              className={`text-sm font-semibold transition-all flex items-center relative ${
                 'isActive' in link && link.isActive 
                   ? 'text-accent border-b-2 border-accent pb-1 mt-0.5' 
                   : 'text-white/80 hover:text-accent'
               }`}
             >
-              {link.icon && link.icon}
+              {link.title === 'Console Dashboard' ? (
+                <span className="relative inline-flex items-center">
+                  <LayoutDashboard className="w-5 h-5" />
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white animate-pulse">
+                      {pendingCount}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                link.icon && link.icon
+              )}
               {link.name}
             </a>
           ))}
@@ -144,11 +183,22 @@ export function Navigation({ onNavigateToAdmin, onNavigateToLanding, currentView
                 href={link.href} 
                 onClick={(e) => handleLinkClick(e, link)}
                 title={'title' in link ? link.title : undefined}
-                className={`text-lg font-semibold flex items-center ${
+                className={`text-lg font-semibold flex items-center relative ${
                   'isActive' in link && link.isActive ? 'text-accent' : 'text-white/90 hover:text-accent'
                 }`}
               >
-                {link.icon && <span className="mr-2">{link.icon}</span>}
+                {link.title === 'Console Dashboard' ? (
+                  <span className="relative inline-flex items-center mr-2">
+                    <LayoutDashboard className="w-5 h-5" />
+                    {pendingCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white animate-pulse">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  link.icon && <span className="mr-2">{link.icon}</span>
+                )}
                 {link.name || link.title}
               </a>
             ))}

@@ -2,27 +2,30 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
+// Fetch config from server dynamically without any VITE_ prefix variables
+const configResponse = await fetch('/api/config');
+const serverConfig = await configResponse.json();
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
+  apiKey: serverConfig.apiKey,
+  authDomain: serverConfig.authDomain,
+  projectId: serverConfig.projectId,
+  storageBucket: serverConfig.storageBucket,
+  messagingSenderId: serverConfig.messagingSenderId,
+  appId: serverConfig.appId
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
 // Initialize Cloud Firestore with the correct database ID
-const dbId = import.meta.env.VITE_FIREBASE_DATABASE_ID || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
+const dbId = serverConfig.databaseId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
 export const db = getFirestore(app, dbId);
 export const auth = getAuth(app);
 
 // Pre-seed admin credentials
-export const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@startupsummit.co.bw';
-export const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'YOUR_ADMIN_PASSWORD';
+export const ADMIN_EMAIL = serverConfig.adminEmail || 'admin@startupsummit.co.bw';
+export const ADMIN_PASSWORD = serverConfig.adminPassword || 'YOUR_ADMIN_PASSWORD';
 
 // Helper to seed the admin user if they do not exist
 export async function seedAdminUser() {

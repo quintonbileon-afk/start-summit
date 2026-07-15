@@ -6,12 +6,38 @@ import dotenv from "dotenv";
 import dns from "dns";
 import crypto from "crypto";
 import QRCode from "qrcode";
+import fs from "fs";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, query, orderBy, limit } from "firebase/firestore";
+import { sendRegistrationEmail, notifyAdmin } from "./emailService.ts";
 
 // Prefer IPv4 first for DNS resolution to avoid IPv6 connection timeouts on Cloud Run/Docker
 if (dns && typeof dns.setDefaultResultOrder === "function") {
   dns.setDefaultResultOrder("ipv4first");
+}
+
+// Force load and override with .env file variables
+try {
+  const envPath = path.join(process.cwd(), '.env');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf8');
+    content.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const firstEqual = trimmed.indexOf('=');
+        if (firstEqual > 0) {
+          const key = trimmed.slice(0, firstEqual).trim();
+          let value = trimmed.slice(firstEqual + 1).trim();
+          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+          process.env[key] = value;
+        }
+      }
+    });
+  }
+} catch (err) {
+  console.error('[Server] Error loading .env override:', err);
 }
 
 // Load environment variables
@@ -23,18 +49,38 @@ const PORT = 3000;
 // Body parser
 app.use(express.json());
 
+// Helper to resolve environment variables, filtering out empty or quoted empty placeholders
+const getEnv = (key: string): string => {
+  const val = process.env[key];
+  if (val && val !== '""' && val !== "''" && val.trim() !== "") {
+    return val;
+  }
+  return "";
+};
+
+// Fallback: Read firebase-applet-config.json if it exists
+let fileConfig: any = {};
+try {
+  const filePath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(filePath)) {
+    fileConfig = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  }
+} catch (err) {
+  console.warn("Failed to load firebase-applet-config.json fallback:", err);
+}
+
 // Initialize Firebase client SDK in server-side context for logs & queues
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: process.env.VITE_FIREBASE_APP_ID || ""
+  apiKey: getEnv("FIREBASE_API_KEY") || fileConfig.apiKey || "",
+  authDomain: getEnv("FIREBASE_AUTH_DOMAIN") || fileConfig.authDomain || "",
+  projectId: getEnv("FIREBASE_PROJECT_ID") || fileConfig.projectId || "",
+  storageBucket: getEnv("FIREBASE_STORAGE_BUCKET") || fileConfig.storageBucket || "",
+  messagingSenderId: getEnv("FIREBASE_MESSAGING_SENDER_ID") || fileConfig.messagingSenderId || "",
+  appId: getEnv("FIREBASE_APP_ID") || fileConfig.appId || ""
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
-const dbId = process.env.VITE_FIREBASE_DATABASE_ID || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
+const dbId = getEnv("FIREBASE_DATABASE_ID") || fileConfig.firestoreDatabaseId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
 const db = getFirestore(firebaseApp, dbId);
 
 // Centralized logEmailEvent helper
@@ -76,12 +122,13 @@ async function logEmailEvent(event: {
   }
 }
 
-// Mailer transporter helper
+// Mailer transporter helper using fresh SMTP configurations
 const getTransporter = () => {
-  const smtpHost = process.env.SMTP_HOST || "mail.startupsummit.co.bw";
-  const smtpPort = process.env.SMTP_PORT || "465";
-  const smtpUser = process.env.SMTP_USER || "admin@startupsummit.co.bw";
-  const smtpPass = process.env.SMTP_PASS;
+  const smtpHost = process.env.PRIMARY_SMTP_HOST || process.env.SMTP_HOST || "mail.startupsummit.co.bw";
+  const smtpPort = process.env.PRIMARY_SMTP_PORT || process.env.SMTP_PORT || "465";
+  const smtpUser = process.env.PRIMARY_SMTP_USER || process.env.SMTP_USER || "admin@startupsummit.co.bw";
+  const smtpPass = process.env.PRIMARY_SMTP_PASS || process.env.SMTP_PASS || "@St@rtu9@26";
+  const smtpSecure = process.env.PRIMARY_SMTP_SECURE === "true" || process.env.SMTP_SECURE === "true" || smtpPort === "465";
 
   if (!smtpPass) {
     return null;
@@ -91,7 +138,7 @@ const getTransporter = () => {
   return nodemailer.createTransport({
     host: smtpHost,
     port: portNum,
-    secure: portNum === 465, // true for 465, false for 587
+    secure: smtpSecure,
     auth: {
       user: smtpUser,
       pass: smtpPass
@@ -99,43 +146,97 @@ const getTransporter = () => {
     tls: {
       rejectUnauthorized: false // avoids SSL handshake issues on self-signed and custom certs
     },
-    connectionTimeout: 4000,
-    greetingTimeout: 4000,
-    socketTimeout: 6000,
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
   });
 };
 
-// Send email with automatic 3x retries
-async function sendMailWithRetry(mailOptions: nodemailer.SendMailOptions, maxRetries = 3) {
-  const transporter = getTransporter();
-  if (!transporter) {
-    throw new Error("SMTP credentials (SMTP_PASS) not configured in platform secrets.");
+// Fallback transporter helper using Gmail
+const getFallbackTransporter = () => {
+  const smtpHost = process.env.FALLBACK_SMTP_HOST || "smtp.gmail.com";
+  const smtpPort = process.env.FALLBACK_SMTP_PORT || "587";
+  const smtpUser = process.env.FALLBACK_SMTP_USER || "quintonbileon@gmail.com";
+  const smtpPass = process.env.FALLBACK_SMTP_PASS || "vris ycyx fdsi hyoj";
+  const smtpSecure = process.env.FALLBACK_SMTP_SECURE === "true";
+
+  if (!smtpPass) {
+    return null;
   }
 
-  let attempt = 0;
-  let lastError: any = null;
+  const portNum = parseInt(smtpPort, 10);
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port: portNum,
+    secure: smtpSecure,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass
+    },
+    tls: {
+      rejectUnauthorized: false
+    },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
+  });
+};
 
-  while (attempt < maxRetries) {
-    attempt++;
+// Send email with automatic primary / fallback delivery
+async function sendMailWithRetry(mailOptions: nodemailer.SendMailOptions, maxRetries = 3) {
+  // Ensure "from" is always admin@startupsummit.co.bw as requested by user
+  const fromEmail = 'admin@startupsummit.co.bw';
+  const fromName = 'Startup Summit Botswana';
+  mailOptions.from = `"${fromName}" <${fromEmail}>`;
+
+  // 1. Try Primary Transporter (Custom Domain)
+  const primaryTransporter = getTransporter();
+  if (primaryTransporter) {
     try {
-      const info = await transporter.sendMail(mailOptions);
-      return { success: true, messageId: info.messageId, attempt };
-    } catch (err: any) {
-      lastError = err;
+      console.log(`[Server] [Primary Method] Attempting via custom domain SMTP (${process.env.PRIMARY_SMTP_HOST || 'mail.startupsummit.co.bw'})...`);
+      const info = await primaryTransporter.sendMail(mailOptions);
+      console.log(`[Server] [Primary SUCCESS] Delivered successfully! Message ID: ${info.messageId}`);
+      return { success: true, messageId: info.messageId, attempt: 1 };
+    } catch (primaryError: any) {
+      console.warn(`[Server] [Primary FAILED] Custom domain SMTP error: ${primaryError.message || primaryError}`);
+      
+      // Log retry event in Firestore so dashboard updates
       await logEmailEvent({
         type: 'RETRY_ATTEMPT',
         email: String(mailOptions.to),
         status: 'failed',
-        attempt,
-        error: err.message || String(err)
+        attempt: 1,
+        error: `Primary SMTP Failed: ${primaryError.message || String(primaryError)}. Falling back to Gmail SMTP.`
       });
-      if (attempt < maxRetries) {
-        // Linear backoff delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
     }
+  } else {
+    console.warn(`[Server] Primary transporter not configured, moving to fallback.`);
   }
-  throw lastError;
+
+  // 2. Try Fallback Transporter (Gmail)
+  const fallbackTransporter = getFallbackTransporter();
+  if (!fallbackTransporter) {
+    throw new Error("Neither Primary nor Fallback SMTP transporters are configured.");
+  }
+
+  try {
+    console.log(`[Server] [Fallback Method] Attempting via Gmail SMTP (${process.env.FALLBACK_SMTP_HOST || 'smtp.gmail.com'})...`);
+    const info = await fallbackTransporter.sendMail(mailOptions);
+    console.log(`[Server] [Fallback SUCCESS] Delivered successfully! Message ID: ${info.messageId}`);
+    return { success: true, messageId: info.messageId, attempt: 2 };
+  } catch (fallbackError: any) {
+    console.error(`[Server] [FATAL] Fallback Gmail SMTP also failed.`);
+    
+    await logEmailEvent({
+      type: 'RETRY_ATTEMPT',
+      email: String(mailOptions.to),
+      status: 'failed',
+      attempt: 2,
+      error: `Fallback SMTP Failed: ${fallbackError.message || String(fallbackError)}`
+    });
+
+    throw fallbackError;
+  }
 }
 
 // API: Health Check
@@ -143,10 +244,92 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// API: Test SMTP and Email Configuration
+app.get("/api/test-email", async (req, res) => {
+  try {
+    console.log("[TestRoute] Received request to test SMTP / email service configuration");
+    const testAdminEmail = process.env.ADMIN_EMAIL || "admin@startupsummit.co.bw";
+
+    // 1. Notify Admin test
+    console.log(`[TestRoute] Triggering notifyAdmin to ${testAdminEmail}`);
+    const adminRes = await notifyAdmin(testAdminEmail, "Golebileone Setlamelo (SMTP Test)");
+
+    // 2. Welcome Registration test matching the exact image mockup data
+    console.log(`[TestRoute] Triggering sendRegistrationEmail with mock data to ${testAdminEmail}`);
+    const welcomeRes = await sendRegistrationEmail(
+      testAdminEmail, 
+      "Golebileone Setlamelo", 
+      {
+        company: "BOCRA",
+        role: "Developer",
+        participantCategory: "Startup Founder / Entrepreneur",
+        ticketOption: "standard",
+        registrationType: "attendant"
+      }
+    );
+
+    res.json({
+      success: true,
+      message: "Test emails sent successfully! Check the mailbox for 'Welcome to Botswana Startup Summit 2026' and the Admin alert.",
+      adminAlertMessageId: adminRes.messageId,
+      adminDeliveryMethod: adminRes.method,
+      welcomeEmailMessageId: welcomeRes.messageId,
+      welcomeDeliveryMethod: welcomeRes.method,
+      configUsed: {
+        primary: {
+          host: process.env.PRIMARY_SMTP_HOST || "mail.startupsummit.co.bw",
+          port: process.env.PRIMARY_SMTP_PORT || "465",
+          user: process.env.PRIMARY_SMTP_USER || "admin@startupsummit.co.bw"
+        },
+        fallback: {
+          host: process.env.FALLBACK_SMTP_HOST || "smtp.gmail.com",
+          port: process.env.FALLBACK_SMTP_PORT || "587",
+          user: process.env.FALLBACK_SMTP_USER || "quintonbileon@gmail.com"
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error("[TestRoute] SMTP / email service test failed with error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to send test emails. See error details below.",
+      error: error.message || String(error),
+      stack: error.stack,
+      configUsed: {
+        primary: {
+          host: process.env.PRIMARY_SMTP_HOST || "mail.startupsummit.co.bw",
+          port: process.env.PRIMARY_SMTP_PORT || "465",
+          user: process.env.PRIMARY_SMTP_USER || "admin@startupsummit.co.bw"
+        },
+        fallback: {
+          host: process.env.FALLBACK_SMTP_HOST || "smtp.gmail.com",
+          port: process.env.FALLBACK_SMTP_PORT || "587",
+          user: process.env.FALLBACK_SMTP_USER || "quintonbileon@gmail.com"
+        }
+      }
+    });
+  }
+});
+
+// API: Config for frontend initialization
+app.get("/api/config", (req, res) => {
+  res.json({
+    apiKey: getEnv("FIREBASE_API_KEY") || fileConfig.apiKey || "",
+    authDomain: getEnv("FIREBASE_AUTH_DOMAIN") || fileConfig.authDomain || "",
+    projectId: getEnv("FIREBASE_PROJECT_ID") || fileConfig.projectId || "",
+    storageBucket: getEnv("FIREBASE_STORAGE_BUCKET") || fileConfig.storageBucket || "",
+    messagingSenderId: getEnv("FIREBASE_MESSAGING_SENDER_ID") || fileConfig.messagingSenderId || "",
+    appId: getEnv("FIREBASE_APP_ID") || fileConfig.appId || "",
+    databaseId: getEnv("FIREBASE_DATABASE_ID") || fileConfig.firestoreDatabaseId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61",
+    adminEmail: getEnv("ADMIN_EMAIL") || "admin@startupsummit.co.bw",
+    adminPassword: getEnv("ADMIN_PASSWORD") || "YOUR_ADMIN_PASSWORD"
+  });
+});
+
 // API: Trigger Admin Registration Alert (PART 1)
 app.post("/api/send-registration-email", async (req, res) => {
   const userData = req.body;
-  const { id, fullName, email, registrationType, company, role, mobileNumber, physicalAddress } = userData;
+  const { id, fullName, email, registrationType } = userData;
 
   if (!email || !fullName || !registrationType) {
     return res.status(400).json({ 
@@ -155,117 +338,15 @@ app.post("/api/send-registration-email", async (req, res) => {
     });
   }
 
-  const appUrl = process.env.APP_URL || "https://ais-dev-nhdcitijonrkaqilezks6n-312329245331.europe-west2.run.app";
-  const timestampStr = new Date().toLocaleString();
-
-  // Create action URLs
-  const dashboardUrl = `${appUrl}`;
-  const profileUrl = `${appUrl}`;
-  const verifyUrl = `${appUrl}`;
-
-  // Admin Registration Alert Email Template HTML
-  const adminHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); border: 1px solid #e2e8f0; }
-        .header { background-color: #0f172a; padding: 32px 24px; text-align: center; color: #ffffff; }
-        .badge { display: inline-block; background-color: #ef4444; color: #ffffff; font-size: 11px; font-weight: bold; text-transform: uppercase; padding: 6px 12px; border-radius: 9999px; letter-spacing: 0.05em; margin-bottom: 12px; }
-        .title { margin: 0; font-size: 20px; font-weight: bold; letter-spacing: -0.025em; }
-        .meta { font-size: 12px; color: #94a3b8; margin-top: 8px; }
-        .content { padding: 32px 24px; }
-        .table { width: 100%; border-collapse: collapse; margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-        .table th, .table td { padding: 12px 16px; text-align: left; font-size: 14px; border-bottom: 1px solid #e2e8f0; }
-        .table th { background-color: #f8fafc; font-weight: 600; color: #64748b; width: 35%; }
-        .table td { color: #0f172a; }
-        .status-box { background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin-bottom: 28px; }
-        .status-title { margin: 0 0 4px 0; font-size: 13px; font-weight: bold; color: #b45309; text-transform: uppercase; letter-spacing: 0.05em; }
-        .status-desc { margin: 0; font-size: 14px; color: #78350f; line-height: 1.4; }
-        .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
-        .btn { display: block; text-align: center; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: bold; transition: all 0.2s; }
-        .btn-primary { background-color: #3b82f6; color: #ffffff; }
-        .btn-secondary { background-color: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1; }
-        .footer { text-align: center; padding: 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <span class="badge">🔔 New Registration Alert</span>
-          <h2 class="title">Botswana Startup Summit 2026</h2>
-          <div class="meta">Received at: ${timestampStr}</div>
-        </div>
-        <div class="content">
-          <p style="margin-top: 0; font-size: 15px; line-height: 1.5; color: #334155;">
-            An attendee has successfully registered on the portal. Please review registration details below and verify payment if applicable.
-          </p>
-          <table class="table">
-            <tr><th>Full Name</th><td>${fullName}</td></tr>
-            <tr><th>Email Address</th><td>${email}</td></tr>
-            <tr><th>Registration Date</th><td>${timestampStr}</td></tr>
-            <tr><th>User Type</th><td style="text-transform: capitalize; font-weight: bold; color: #3b82f6;">${registrationType}</td></tr>
-            <tr><th>Company</th><td>${company || "N/A"}</td></tr>
-            <tr><th>Role</th><td>${role || "N/A"}</td></tr>
-            <tr><th>Phone</th><td>${mobileNumber || "N/A"}</td></tr>
-            <tr><th>Physical Address</th><td>${physicalAddress || "N/A"}</td></tr>
-          </table>
-
-          <div class="status-box">
-            <h4 class="status-title">⚠️ Payment Status: Pending Verification</h4>
-            <p class="status-desc">
-              Please check your bank account or mobile money records for payments from <strong>${fullName}</strong>. Once confirmed, approve the registration from the Admin Dashboard to auto-issue their digital ticket.
-            </p>
-          </div>
-
-          <div class="btn-group">
-            <a href="${verifyUrl}" class="btn btn-primary">🔍 Verify Payment & Issue Ticket</a>
-            <a href="${profileUrl}" class="btn btn-secondary">👤 View Full Profile</a>
-            <a href="${dashboardUrl}" class="btn btn-secondary">📋 Admin Dashboard</a>
-          </div>
-        </div>
-        <div class="footer">
-          <p style="margin: 0;">Automated notification from Botswana Startup Summit 2026 email service.</p>
-          <p style="margin: 6px 0 0 0; color: #94a3b8;">Admin Support: admin@startupsummit.co.bw</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  const smtpUser = process.env.SMTP_USER || "admin@startupsummit.co.bw";
-  const smtpFrom = process.env.SMTP_FROM || `Startup Summit Botswana <${smtpUser}>`;
-
-  const mailOptions: nodemailer.SendMailOptions = {
-    from: smtpFrom,
-    to: "admin@startupsummit.co.bw", // Recipient is strictly admin
-    subject: `New User Registration Alert - ${fullName} (${email})`,
-    html: adminHtml,
-  };
-
   try {
-    const transporter = getTransporter();
-    if (!transporter) {
-      // SMTP credentials not configured - log simulation gracefully
-      await logEmailEvent({
-        type: 'ADMIN_ALERT',
-        userId: id || "temp-id",
-        email: email,
-        status: 'simulated',
-        error: "SMTP credentials (SMTP_PASS) not configured in platform secrets. Simulating email."
-      });
-      return res.status(200).json({
-        success: true,
-        message: "Admin alert simulated (No SMTP_PASS found in secrets panel).",
-        simulated: true
-      });
-    }
-
-    // Attempt delivery with 3x retry
-    await sendMailWithRetry(mailOptions);
+    console.log(`[send-registration-email] Triggering welcome and admin alert emails for ${fullName} (${email})...`);
     
+    // 1. Send the welcome registration email to the user
+    await sendRegistrationEmail(email, fullName, userData);
+
+    // 2. Notify the Admin about the new registration
+    await notifyAdmin(email, fullName);
+
     await logEmailEvent({
       type: 'ADMIN_ALERT',
       userId: id || "temp-id",
@@ -275,10 +356,11 @@ app.post("/api/send-registration-email", async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Admin registration alert email successfully delivered."
+      message: "Registration welcome email and Admin alert sent successfully via SMTP."
     });
   } catch (err: any) {
-    // Failure should log but NOT block registration flow (graceful fallback)
+    console.error("[send-registration-email] SMTP delivery failed:", err);
+    
     await logEmailEvent({
       type: 'ADMIN_ALERT',
       userId: id || "temp-id",
@@ -289,7 +371,7 @@ app.post("/api/send-registration-email", async (req, res) => {
 
     return res.status(200).json({
       success: false,
-      message: "Admin alert failed to send via SMTP, but registration was processed. Logged for retry.",
+      message: "Registration email failed to send, but registration was processed.",
       error: err.message || String(err)
     });
   }

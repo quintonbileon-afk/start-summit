@@ -371,23 +371,7 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
-                <button 
-                  className="flex items-center justify-center gap-2 bg-yellow hover:bg-yellow/90 text-primary font-bold py-3 px-6 rounded-full transition-all hover:scale-105 active:scale-95 disabled:opacity-75 disabled:cursor-not-allowed text-sm"
-                  onClick={handleDownload}
-                  disabled={isCapturing || localPaymentStatus === 'pending'}
-                >
-                  <Download className="w-5 h-5" />
-                  {isCapturing ? 'Generating...' : localPaymentStatus === 'pending' ? 'Locked (Pending Payment)' : 'Download Ticket'}
-                </button>
-                <button 
-                  className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-3 px-6 rounded-full transition-all hover:scale-105 active:scale-95 text-sm"
-                  onClick={handleWhatsAppShare}
-                >
-                  <Share2 className="w-5 h-5" />
-                  Share on WhatsApp
-                </button>
-              </div>
+
             </motion.div>
           </div>
         </div>
