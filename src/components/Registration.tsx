@@ -527,7 +527,7 @@ export function Registration({ onSuccess }: RegistrationProps) {
                     Saving Registration...
                   </>
                 ) : (
-                  'Register Now & Get Ticket'
+                  'Register'
                 )}
               </button>
             </div>

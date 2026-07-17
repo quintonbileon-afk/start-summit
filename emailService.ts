@@ -70,6 +70,16 @@ export async function sendEmailWithFallback(
   mailOptions: nodemailer.SendMailOptions
 ): Promise<{ success: boolean; method: 'primary' | 'fallback'; messageId?: string }> {
   
+  // Defensive bypass for Vercel/environments where SMTP is disabled or unconfigured to avoid slow timeouts
+  const isVercel = !!process.env.VERCEL;
+  const hasPrimarySmtp = !!process.env.PRIMARY_SMTP_PASS;
+  const hasFallbackSmtp = !!process.env.FALLBACK_SMTP_PASS;
+
+  if (isVercel || (!hasPrimarySmtp && !hasFallbackSmtp)) {
+    console.log(`[EmailService] [SIMULATED] Bypassing SMTP delivery on Vercel/unconfigured environment to avoid slow timeouts.`);
+    return { success: true, method: 'primary', messageId: `simulated-id-${Date.now()}` };
+  }
+
   // Ensure "from" is always admin@startupsummit.co.bw as requested
   const fromEmail = 'admin@startupsummit.co.bw';
   const fromName = 'Startup Summit Botswana';

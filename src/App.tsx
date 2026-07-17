@@ -164,7 +164,11 @@ export default function App() {
 
       <TicketModal 
         isOpen={isTicketModalOpen} 
-        onClose={() => setIsTicketModalOpen(false)} 
+        onClose={() => {
+          setIsTicketModalOpen(false);
+          window.location.hash = '';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }} 
         data={registrationData} 
       />
       {renderConfigErrorBanner()}

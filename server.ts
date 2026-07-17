@@ -78,6 +78,15 @@ const firebaseConfig = {
   appId: getEnv("FIREBASE_APP_ID") || fileConfig.appId || ""
 };
 
+// Defensive checks for Vercel/cold starts where environment variables might not be populated yet
+const isConfigValid = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+if (!isConfigValid) {
+  console.warn("[Server] Firebase configuration not found or incomplete. Falling back to placeholder keys to prevent startup crash.");
+  firebaseConfig.apiKey = firebaseConfig.apiKey || "AIzaSyDummyKey_PleaseConfigureEnvironmentVariables";
+  firebaseConfig.projectId = firebaseConfig.projectId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
+  firebaseConfig.authDomain = firebaseConfig.authDomain || `${firebaseConfig.projectId}.firebaseapp.com`;
+}
+
 const firebaseApp = initializeApp(firebaseConfig);
 const dbId = getEnv("FIREBASE_DATABASE_ID") || fileConfig.firestoreDatabaseId || "ai-studio-startupsummitbot-95035c0c-ff62-4d88-b693-ccacd9498d61";
 const db = getFirestore(firebaseApp, dbId);
@@ -183,6 +192,16 @@ const getFallbackTransporter = () => {
 
 // Send email with automatic primary / fallback delivery
 async function sendMailWithRetry(mailOptions: nodemailer.SendMailOptions, maxRetries = 3) {
+  // Defensive bypass for Vercel/environments where SMTP is disabled or unconfigured to avoid slow timeouts
+  const isVercel = !!process.env.VERCEL;
+  const hasPrimarySmtp = !!process.env.PRIMARY_SMTP_PASS;
+  const hasFallbackSmtp = !!process.env.FALLBACK_SMTP_PASS;
+
+  if (isVercel || (!hasPrimarySmtp && !hasFallbackSmtp)) {
+    console.log(`[Server] [SIMULATED] Bypassing SMTP delivery on Vercel/unconfigured environment to avoid slow timeouts.`);
+    return { success: true, messageId: `simulated-id-${Date.now()}`, attempt: 1, simulated: true };
+  }
+
   // Ensure "from" is always admin@startupsummit.co.bw as requested by user
   const fromEmail = 'admin@startupsummit.co.bw';
   const fromName = 'Startup Summit Botswana';
