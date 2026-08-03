@@ -26,7 +26,7 @@ export function Agenda() {
 
   const summitDetails = {
     theme: "Building Botswana's Startup Ecosystem for Sustainable Economic Transformation",
-    date: "Friday, 7 August 2026",
+    date: "Friday, 14 August 2026",
     venue: "Game City Lifestyle Centre, Gaborone",
     mission: "Identify the structural barriers facing Botswana startups and produce practical recommendations to Government and stakeholders under the Botswana Economic Transformation Programme (BETP)."
   };

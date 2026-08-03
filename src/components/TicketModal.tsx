@@ -92,7 +92,7 @@ export function TicketModal({ isOpen, onClose, data }: TicketModalProps) {
                   </div>
                   <div>
                     <span className="block text-[10px] text-white/40 uppercase tracking-wider font-semibold">Date</span>
-                    <span className="font-medium text-white/80 text-sm">August 7, 2026</span>
+                    <span className="font-medium text-white/80 text-sm">August 14, 2026</span>
                   </div>
                 </div>
 

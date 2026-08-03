@@ -952,9 +952,9 @@ app.post("/api/resend-ticket-email", async (req, res) => {
   }
 });
 
-// API: Speaker Application Email (Stubbed/Emails Removed)
-app.post("/api/speaker-apply", (req, res) => {
-  const { fullName, email, topic } = req.body;
+// API: Speaker Application Form Submission
+app.post("/api/speaker-apply", async (req, res) => {
+  const { fullName, email, role, company, topic, bio } = req.body;
 
   if (!email || !fullName || !topic) {
     return res.status(400).json({ 
@@ -965,11 +965,76 @@ app.post("/api/speaker-apply", (req, res) => {
 
   console.log(`[Speaker Application Received] ${fullName} (${email}) on topic: "${topic}".`);
 
-  return res.status(200).json({
-    success: true,
-    message: "Speaker application submitted successfully.",
-    simulated: true
-  });
+  try {
+    // 1. Save to Firestore
+    await addDoc(collection(db, "speaker_applications"), {
+      fullName,
+      email,
+      role: role || "",
+      company: company || "",
+      topic,
+      bio: bio || "",
+      status: "pending",
+      submittedAt: new Date()
+    });
+
+    // 2. Notify Admin about the new speaker application
+    const smtpFrom = process.env.SMTP_FROM || `Startup Summit Botswana <admin@startupsummit.co.bw>`;
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@startupsummit.co.bw";
+    
+    const alertMailOptions: nodemailer.SendMailOptions = {
+      from: smtpFrom,
+      to: adminEmail,
+      subject: `🎤 New Speaker Application: ${fullName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; margin-top: 0;">New Speaker Application</h2>
+          <p>Hello Admin,</p>
+          <p>A new speaker application has been submitted for the Botswana Startup Summit:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="background-color: #f8fafc;">
+              <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0; width: 30%;">Name</th>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>${fullName}</strong></td>
+            </tr>
+            <tr>
+              <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0;">Email</th>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;"><a href="mailto:${email}">${email}</a></td>
+            </tr>
+            <tr style="background-color: #f8fafc;">
+              <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0;">Role / Title</th>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;">${role || "N/A"}</td>
+            </tr>
+            <tr>
+              <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0;">Company</th>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;">${company || "N/A"}</td>
+            </tr>
+            <tr style="background-color: #f8fafc;">
+              <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0;">Topic</th>
+              <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>${topic}</strong></td>
+            </tr>
+          </table>
+          <h3 style="margin-top: 20px;">Short Bio:</h3>
+          <p style="background-color: #f1f5f9; padding: 15px; border-radius: 6px; font-style: italic;">${bio ? bio.replace(/\\n/g, '<br/>') : "No bio provided."}</p>
+        </div>
+      `
+    };
+
+    const transporter = getTransporter();
+    if (transporter) {
+      await sendMailWithRetry(alertMailOptions).catch(e => console.warn("Admin alert for speaker failed", e));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Speaker application submitted successfully."
+    });
+  } catch (error: any) {
+    console.error("Failed to save speaker application:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to submit application. Please try again later."
+    });
+  }
 });
 
 // Vite middleware and routing for SPA fallback

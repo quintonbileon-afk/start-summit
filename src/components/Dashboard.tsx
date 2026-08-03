@@ -1783,7 +1783,7 @@ export function Dashboard({ onBack }: DashboardProps) {
                   <div className="grid grid-cols-2 gap-4 mb-5 py-3.5 px-4 bg-white/5 rounded-xl border border-white/5">
                     <div>
                       <span className="block text-[9px] text-white/40 uppercase tracking-wider font-bold">Date</span>
-                      <span className="font-bold text-white text-xs block">August 7, 2026</span>
+                      <span className="font-bold text-white text-xs block">August 14, 2026</span>
                       <span className="text-[10px] text-white/50 block">08:00 AM - 17:00 PM</span>
                     </div>
 

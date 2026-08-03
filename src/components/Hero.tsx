@@ -25,8 +25,8 @@ export function Hero() {
   };
 
   useEffect(() => {
-    // Target date: August 7, 2026
-    const targetDate = new Date('2026-08-07T09:00:00').getTime();
+    // Target date: August 14, 2026
+    const targetDate = new Date('2026-08-14T09:00:00').getTime();
 
     const updateTimer = () => {
       const now = new Date().getTime();
@@ -113,7 +113,7 @@ export function Hero() {
         >
           <div className="flex items-center gap-3 text-yellow font-semibold text-lg bg-white/5 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-sm">
             <CalendarDays className="w-6 h-6" />
-            AUG 7, 2026
+            AUG 14, 2026
           </div>
           <div className="flex items-center gap-3 text-white font-semibold text-lg bg-white/5 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur-sm">
             <MapPin className="w-6 h-6 text-accent" />
