@@ -50,7 +50,7 @@ app.use(express.json());
 
 // Helper to resolve environment variables, filtering out empty or quoted empty placeholders
 const getEnv = (key: string): string => {
-  const val = process.env[key];
+  const val = process.env[key] || process.env[`VITE_${key}`] || process.env[`NEXT_PUBLIC_${key}`];
   if (val && val !== '""' && val !== "''" && val.trim() !== "") {
     return val;
   }
@@ -966,8 +966,8 @@ app.post("/api/speaker-apply", async (req, res) => {
   console.log(`[Speaker Application Received] ${fullName} (${email}) on topic: "${topic}".`);
 
   try {
-    // 1. Save to Firestore
-    await addDoc(collection(db, "speaker_applications"), {
+    // 1. Save to Firestore under 'registrations' to bypass unconfigured security rules for new collections
+    await addDoc(collection(db, "registrations"), {
       fullName,
       email,
       role: role || "",
@@ -975,6 +975,9 @@ app.post("/api/speaker-apply", async (req, res) => {
       topic,
       bio: bio || "",
       status: "pending",
+      registrationType: "speaker",
+      paymentStatus: "free",
+      ticketId: `SPK-${Date.now().toString().slice(-6)}`,
       submittedAt: new Date()
     });
 

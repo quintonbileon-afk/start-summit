@@ -7,7 +7,7 @@ import {
   Users, Briefcase, Award, Search, Filter, Download, Trash2, 
   ExternalLink, Calendar, MapPin, Mail, Phone, ChevronRight, X,
   ArrowLeft, RefreshCw, Layers, CheckCircle2, AlertTriangle, Play, LogOut,
-  Ticket, Check, QrCode, UserCheck, AlertCircle, Laptop, Tablet
+  Ticket, Check, QrCode, UserCheck, AlertCircle, Laptop, Tablet, Mic
 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, getDocs, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -411,6 +411,7 @@ export function Dashboard({ onBack }: DashboardProps) {
   const attendantCount = registrations.filter(r => r.registrationType === 'attendant').length;
   const exhibitorCount = registrations.filter(r => r.registrationType === 'exhibitor').length;
   const partnerCount = registrations.filter(r => r.registrationType === 'partner').length;
+  const speakerCount = registrations.filter(r => r.registrationType === 'speaker').length;
 
   if (authLoading) {
     return (
@@ -503,7 +504,7 @@ export function Dashboard({ onBack }: DashboardProps) {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6 mb-10">
           
           <div className="bg-primary-light/50 border border-white/10 rounded-3xl p-6 backdrop-blur-sm flex items-center gap-4">
             <div className="p-3 bg-accent/10 text-accent rounded-2xl">
@@ -542,6 +543,16 @@ export function Dashboard({ onBack }: DashboardProps) {
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-white/40">Partners / Sponsors</p>
               <h3 className="text-2xl md:text-3xl font-bold text-white mt-1">{partnerCount}</h3>
+            </div>
+          </div>
+
+          <div className="bg-primary-light/50 border border-white/10 rounded-3xl p-6 backdrop-blur-sm flex items-center gap-4">
+            <div className="p-3 bg-blue-500/10 text-blue-400 rounded-2xl">
+              <Mic className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-white/40">Speakers</p>
+              <h3 className="text-2xl md:text-3xl font-bold text-white mt-1">{speakerCount}</h3>
             </div>
           </div>
 
@@ -707,6 +718,8 @@ export function Dashboard({ onBack }: DashboardProps) {
                                   ? 'bg-yellow/10 text-yellow' 
                                   : reg.registrationType === 'exhibitor' 
                                   ? 'bg-purple-500/10 text-purple-400' 
+                                  : reg.registrationType === 'speaker'
+                                  ? 'bg-blue-500/10 text-blue-400'
                                   : 'bg-emerald-500/10 text-emerald-400'
                               }`}>
                                 <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -716,6 +729,8 @@ export function Dashboard({ onBack }: DashboardProps) {
                             <td className="py-4 px-6">
                               {reg.registrationType === 'partner' ? (
                                 <span className="text-[10px] text-emerald-400/80 font-semibold font-mono uppercase tracking-wider bg-emerald-500/5 border border-emerald-500/10 px-2 py-0.5 rounded">Complimentary</span>
+                              ) : reg.registrationType === 'speaker' ? (
+                                <span className="text-[10px] text-blue-400/80 font-semibold font-mono uppercase tracking-wider bg-blue-500/5 border border-blue-500/10 px-2 py-0.5 rounded">Guest Speaker</span>
                               ) : reg.paymentStatus === 'verified' ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-500/15 border border-green-500/25 text-green-400 text-[9px] font-bold uppercase tracking-wider">
                                   Paid
@@ -739,7 +754,7 @@ export function Dashboard({ onBack }: DashboardProps) {
                             <td className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-end gap-2.5">
                                 {/* Quick Mark as Paid Button */}
-                                {reg.paymentStatus !== 'verified' && reg.registrationType !== 'partner' && (
+                                {reg.paymentStatus !== 'verified' && reg.registrationType !== 'partner' && reg.registrationType !== 'speaker' && (
                                   <button
                                     onClick={async () => {
                                       await handleVerifyPayment(reg);
@@ -758,7 +773,7 @@ export function Dashboard({ onBack }: DashboardProps) {
                                 )}
 
                                 {/* Generate High-Quality Ticket Button (only when payment status is paid) */}
-                                {(reg.paymentStatus === 'verified' || reg.registrationType === 'partner') && (
+                                {(reg.paymentStatus === 'verified' || reg.registrationType === 'partner' || reg.registrationType === 'speaker') && (
                                   <button
                                     onClick={() => setGeneratedTicketReg(reg)}
                                     className="px-3 py-1.5 bg-yellow/10 hover:bg-yellow/20 border border-yellow/20 text-yellow rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
@@ -1058,6 +1073,8 @@ export function Dashboard({ onBack }: DashboardProps) {
                               ? 'bg-yellow-50 border border-yellow-200 text-yellow' 
                               : verifyResult.registrationType === 'exhibitor' 
                               ? 'bg-purple-50 border border-purple-200 text-purple-600' 
+                              : verifyResult.registrationType === 'speaker'
+                              ? 'bg-blue-50 border border-blue-200 text-blue-600'
                               : 'bg-emerald-50 border border-emerald-200 text-emerald-600'
                           }`}>
                             {verifyResult.registrationType}
@@ -1089,6 +1106,10 @@ export function Dashboard({ onBack }: DashboardProps) {
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-emerald-50 border border-emerald-150 text-emerald-600 font-bold text-[10px] uppercase mt-1">
                               Complimentary
                             </span>
+                          ) : verifyResult.registrationType === 'speaker' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-blue-50 border border-blue-150 text-blue-600 font-bold text-[10px] uppercase mt-1">
+                              Guest Speaker
+                            </span>
                           ) : verifyResult.paymentStatus === 'verified' ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-green-50 border border-green-150 text-green-600 font-bold text-[10px] uppercase mt-1">
                               Paid & Verified
@@ -1111,7 +1132,7 @@ export function Dashboard({ onBack }: DashboardProps) {
 
                   {/* Actions Bar Footer */}
                   <div className="bg-gray-50 px-6 py-5 border-t border-gray-100 flex flex-col gap-3">
-                    {verifyResult.registrationType !== 'partner' && verifyResult.paymentStatus !== 'verified' && (
+                    {verifyResult.registrationType !== 'partner' && verifyResult.registrationType !== 'speaker' && verifyResult.paymentStatus !== 'verified' && (
                       <button
                         onClick={() => handleVerifyPayment(verifyResult)}
                         disabled={isVerifyingPayment === verifyResult.id}
@@ -1138,11 +1159,11 @@ export function Dashboard({ onBack }: DashboardProps) {
                     ) : (
                       <button
                         onClick={() => handleCheckIn(verifyResult.id, true)}
-                        disabled={isCheckingIn || (verifyResult.registrationType !== 'partner' && verifyResult.paymentStatus !== 'verified')}
+                        disabled={isCheckingIn || (verifyResult.registrationType !== 'partner' && verifyResult.registrationType !== 'speaker' && verifyResult.paymentStatus !== 'verified')}
                         className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-green-600/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
                       >
                         {isCheckingIn ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                        {verifyResult.registrationType !== 'partner' && verifyResult.paymentStatus !== 'verified' ? 'Cannot Check-In (Payment Pending)' : 'Confirm Ticket & Check-In'}
+                        {verifyResult.registrationType !== 'partner' && verifyResult.registrationType !== 'speaker' && verifyResult.paymentStatus !== 'verified' ? 'Cannot Check-In (Payment Pending)' : 'Confirm Ticket & Check-In'}
                       </button>
                     )}
                   </div>
@@ -1327,6 +1348,8 @@ export function Dashboard({ onBack }: DashboardProps) {
                       ? 'bg-yellow/10 text-yellow' 
                       : selectedReg.registrationType === 'exhibitor' 
                       ? 'bg-purple-500/10 text-purple-400' 
+                      : selectedReg.registrationType === 'speaker'
+                      ? 'bg-blue-500/10 text-blue-400'
                       : 'bg-emerald-500/10 text-emerald-400'
                   }`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -1467,7 +1490,7 @@ export function Dashboard({ onBack }: DashboardProps) {
                 </div>
 
                 {/* Payment Status Card inside Profile Details Modal */}
-                {selectedReg.registrationType !== 'partner' && (
+                {selectedReg.registrationType !== 'partner' && selectedReg.registrationType !== 'speaker' && (
                   <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 border-b border-white/5 pb-2">Manual Payment Status</h4>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1577,6 +1600,23 @@ export function Dashboard({ onBack }: DashboardProps) {
                   </div>
                 )}
 
+                {/* Speaker Details Conditional Block */}
+                {selectedReg.registrationType === 'speaker' && (
+                  <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-blue-400 border-b border-white/5 pb-2">Speaker details</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <span className="text-xs text-white/50 block">Proposed Topic</span>
+                        <span className="text-sm font-semibold text-white">{selectedReg.topic || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-white/50 block">Speaker Bio</span>
+                        <span className="text-sm font-semibold text-white/90 italic">{selectedReg.bio || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Partner Details Conditional Block */}
                 {selectedReg.registrationType === 'partner' && (
                   <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
@@ -1592,6 +1632,73 @@ export function Dashboard({ onBack }: DashboardProps) {
                       <span className="text-xs text-white/50 block">Partnership Objectives & Interests</span>
                       <p className="text-white/90 text-sm mt-1 bg-white/5 p-3 rounded-xl">{selectedReg.partnershipInterest || 'N/A'}</p>
                     </div>
+                  </div>
+                )}
+
+                {/* Speaker Ticket Management inside Modal */}
+                {selectedReg.registrationType === 'speaker' && (
+                  <div className="bg-primary/40 border border-white/5 p-5 rounded-2xl space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-blue-400 border-b border-white/5 pb-2">Speaker Ticket Status</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <span className="text-xs text-white/50 block mb-0.5">Ticket Status</span>
+                        {selectedReg.paymentStatus === 'verified' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold rounded-lg uppercase tracking-wider mt-1">
+                            <Check className="w-3.5 h-3.5" />
+                            Guest Ticket Issued
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow/10 border border-yellow/20 text-yellow text-xs font-bold rounded-lg uppercase tracking-wider mt-1">
+                            Pending Issue
+                          </span>
+                        )}
+                      </div>
+                      
+                      {!selectedReg.paymentStatus || selectedReg.paymentStatus !== 'verified' ? (
+                        <button
+                          onClick={() => handleVerifyPayment(selectedReg)}
+                          disabled={isVerifyingPayment === selectedReg.id}
+                          className="py-2.5 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                        >
+                          {isVerifyingPayment === selectedReg.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5" />
+                          )}
+                          Approve & Issue Speaker Ticket
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {selectedReg.paymentStatus === 'verified' ? (
+                      <div className="pt-3 border-t border-white/5 flex flex-col sm:flex-row gap-2.5">
+                        <button
+                          onClick={() => setGeneratedTicketReg(selectedReg)}
+                          className="flex-1 py-2.5 px-4 bg-yellow hover:bg-yellow/90 text-primary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Ticket className="w-3.5 h-3.5" />
+                          Generate Speaker Ticket
+                        </button>
+                        <button
+                          onClick={() => handleResendTicket(selectedReg)}
+                          disabled={isResendingEmail === selectedReg.id}
+                          className="flex-1 py-2.5 px-4 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {isResendingEmail === selectedReg.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Mail className="w-3.5 h-3.5" />
+                          )}
+                          Resend Speaker Ticket
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="pt-3 border-t border-white/5">
+                        <p className="text-[10px] text-white/40 leading-relaxed italic">
+                          Click "Approve & Issue Speaker Ticket" to officially register them as a speaker and dispatch their complimentary guest ticket via email.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
