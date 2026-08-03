@@ -42,13 +42,18 @@ export function SpeakerModal({ isOpen, onClose }: SpeakerModalProps) {
         submittedAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'registrations'), regDataToSave);
+      const docRef = await addDoc(collection(db, 'registrations'), regDataToSave);
+
+      const savedData = {
+        ...regDataToSave,
+        id: docRef.id
+      };
 
       // 3. Trigger email notification (non-blocking)
-      fetch('/api/speaker-apply', {
+      fetch('/api/send-registration-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(regDataToSave),
+        body: JSON.stringify(savedData),
       }).catch(err => console.warn('Failed to send email notification:', err));
 
       setIsSuccess(true);

@@ -363,7 +363,7 @@ app.post("/api/send-registration-email", async (req, res) => {
     await sendRegistrationEmail(email, fullName, userData);
 
     // 2. Notify the Admin about the new registration
-    await notifyAdmin(email, fullName);
+    await notifyAdmin(email, fullName, userData);
 
     await logEmailEvent({
       type: 'ADMIN_ALERT',

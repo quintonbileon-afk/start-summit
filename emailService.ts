@@ -139,6 +139,8 @@ export async function sendRegistrationEmail(
       category = 'Exhibitor';
     } else if (regData?.registrationType === 'partner') {
       category = 'Partner';
+    } else if (regData?.registrationType === 'speaker') {
+      category = 'Guest Speaker';
     } else {
       category = 'General Attendee';
     }
@@ -273,18 +275,35 @@ export async function sendRegistrationEmail(
  */
 export async function notifyAdmin(
   userEmail: string, 
-  userName: string
+  userName: string,
+  regData?: any
 ): Promise<{ success: boolean; method?: 'primary' | 'fallback'; messageId?: string }> {
   console.log(`[EmailService] Preparing admin notification for registration: ${userEmail} (${userName})...`);
   
+  const typeText = regData?.registrationType ? regData.registrationType.charAt(0).toUpperCase() + regData.registrationType.slice(1) : 'Attendee';
+  let extraRows = '';
+
+  if (regData?.registrationType === 'speaker') {
+    extraRows = `
+      <tr style="background-color: #f8fafc;">
+        <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0;">Topic</th>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>${regData?.topic || 'N/A'}</strong></td>
+      </tr>
+      <tr>
+        <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0;">Bio</th>
+        <td style="padding: 10px; border: 1px solid #e2e8f0;">${regData?.bio || 'N/A'}</td>
+      </tr>
+    `;
+  }
+
   const mailOptions: nodemailer.SendMailOptions = {
     to: process.env.ADMIN_EMAIL || 'admin@startupsummit.co.bw',
-    subject: `🚨 New Registration Alert: ${userName}`,
+    subject: `🚨 New ${typeText} Registration Alert: ${userName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 10px; margin-top: 0;">New Registration Notification</h2>
+        <h2 style="color: #ef4444; border-bottom: 2px solid #ef4444; padding-bottom: 10px; margin-top: 0;">New ${typeText} Registration</h2>
         <p>Hello Admin,</p>
-        <p>A new registration has been received on the Botswana Startup Summit platform:</p>
+        <p>A new ${typeText.toLowerCase()} registration has been received on the Botswana Startup Summit platform:</p>
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
           <tr style="background-color: #f8fafc;">
             <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0; width: 30%;">Name</th>
@@ -298,8 +317,9 @@ export async function notifyAdmin(
             <th style="text-align: left; padding: 10px; border: 1px solid #e2e8f0;">Registration Date</th>
             <td style="padding: 10px; border: 1px solid #e2e8f0;">${new Date().toLocaleString()}</td>
           </tr>
+          ${extraRows}
         </table>
-        <p>Please log in to the admin console dashboard to review payment details and approve this registration.</p>
+        <p>Please log in to the admin console dashboard to review details and approve this registration.</p>
         <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
           <p>This is an automated notification sent from Botswana Startup Summit 2026.</p>
         </div>
