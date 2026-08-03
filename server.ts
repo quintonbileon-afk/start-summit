@@ -966,22 +966,10 @@ app.post("/api/speaker-apply", async (req, res) => {
   console.log(`[Speaker Application Received] ${fullName} (${email}) on topic: "${topic}".`);
 
   try {
-    // 1. Save to Firestore under 'registrations' to bypass unconfigured security rules for new collections
-    await addDoc(collection(db, "registrations"), {
-      fullName,
-      email,
-      role: role || "",
-      company: company || "",
-      topic,
-      bio: bio || "",
-      status: "pending",
-      registrationType: "speaker",
-      paymentStatus: "free",
-      ticketId: `SPK-${Date.now().toString().slice(-6)}`,
-      submittedAt: new Date()
-    });
+    // Note: Firestore writing is now handled directly by the frontend Client SDK for better Vercel reliability.
+    // This endpoint now only handles the SMTP email notification.
 
-    // 2. Notify Admin about the new speaker application
+    // Notify Admin about the new speaker application
     const smtpFrom = process.env.SMTP_FROM || `Startup Summit Botswana <admin@startupsummit.co.bw>`;
     const adminEmail = process.env.ADMIN_EMAIL || "admin@startupsummit.co.bw";
     

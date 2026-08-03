@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Mic, CheckCircle2, Loader2 } from 'lucide-react';
+import { db, collection, addDoc, serverTimestamp, handleFirestoreError, OperationType } from '../firebase';
 
 interface SpeakerModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export function SpeakerModal({ isOpen, onClose }: SpeakerModalProps) {
     topic: '',
     bio: ''
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,19 +28,34 @@ export function SpeakerModal({ isOpen, onClose }: SpeakerModalProps) {
     setError(null);
 
     try {
-      const response = await fetch('/api/speaker-apply', {
+      // 1. Generate Ticket ID for the speaker
+      const ticketId = `SPK-${Date.now().toString().slice(-6)}`;
+
+      // 2. Save directly to Firestore via Client SDK (Vercel robust)
+      const regDataToSave = {
+        ...formData,
+        ticketId,
+        registrationType: 'speaker',
+        paymentStatus: 'free',
+        status: 'pending',
+        checkedIn: false,
+        submittedAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'registrations'), regDataToSave);
+
+      // 3. Trigger email notification (non-blocking)
+      fetch('/api/speaker-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to submit application');
-      }
+        body: JSON.stringify(regDataToSave),
+      }).catch(err => console.warn('Failed to send email notification:', err));
 
       setIsSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      console.error("Speaker Application Error:", err);
+      const errorMessage = handleFirestoreError(err, OperationType.WRITE);
+      setError(errorMessage || 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
