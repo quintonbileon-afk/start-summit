@@ -1,55 +1,141 @@
-import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mic, ArrowRight } from 'lucide-react';
-import { SpeakerModal } from './SpeakerModal';
+import { Mic, Sparkles, Award, Building2, Briefcase } from 'lucide-react';
+import drFarzamImg from '../assets/images/dr_farzam_kamalabadi.jpg';
+import gaoneImg from '../assets/images/gaone_kabo_edzani.jpg';
+
+interface Speaker {
+  id: string;
+  name: string;
+  role: string;
+  company?: string;
+  badge: 'Keynote Speaker' | 'Speaker';
+  isKeynote?: boolean;
+  image: string;
+  bio: string;
+}
+
+const SPEAKERS: Speaker[] = [
+  {
+    id: 'dr-farzam',
+    name: 'Dr Farzam Kamalabadi',
+    role: 'Presidential Envoy on Global Relations & Economic Development',
+    badge: 'Keynote Speaker',
+    isKeynote: true,
+    image: drFarzamImg,
+    bio: 'Farzam Kamalabadi is a Persian-American global strategist, entrepreneur, and Founder & Chairman of Future Trends Group. Over the past three decades, he has advised governments, business leaders, and institutions across China, the Middle East, Africa, Europe, and the United States on economic development, cross-border investment, energy, finance, and emerging technologies. Widely recognized for his extensive engagement with China and international markets, he has contributed to major trade, investment, and strategic initiatives. Today, his work is focused on advancing Africa\'s economic transformation through innovative development models designed to promote sustainable growth, international cooperation, poverty reduction, and shared global prosperity.'
+  },
+  {
+    id: 'gaone-edzani',
+    name: 'Mrs Gaone Catherine Kabo-Edzani',
+    role: 'Founder and Managing Director',
+    company: 'Perfect Pour',
+    badge: 'Speaker',
+    isKeynote: false,
+    image: gaoneImg,
+    bio: 'Leading entrepreneurial innovation and business excellence in Botswana\'s private sector, championing local startup development and sustainable enterprise growth.'
+  }
+];
 
 export function Speakers() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   return (
     <section id="speakers" className="py-24 bg-gray-50 text-primary relative overflow-hidden">
-      {/* Decorative background pattern */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
+      {/* Subtle background pattern */}
+      <div 
+        className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+        style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '32px 32px' }}
+      ></div>
       
-      <div className="max-w-4xl mx-auto px-6 relative z-10">
+      <div className="max-w-6xl mx-auto px-6 relative z-10">
         <motion.div 
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center"
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center mb-16"
         >
-          <div className="w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-xl -rotate-6 hover:rotate-0 transition-transform duration-300">
-            <Mic className="w-8 h-8" />
+          <div className="w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl -rotate-6 hover:rotate-0 transition-transform duration-300">
+            <Mic className="w-8 h-8 text-yellow" />
           </div>
           
-          <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">Speakers <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-yellow">TBA</span></h2>
-          <div className="w-20 h-2 bg-yellow mx-auto rounded-full mb-8"></div>
+          <h2 className="text-4xl md:text-5xl font-display font-bold mb-4">
+            Distinguished <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-yellow">Speakers</span>
+          </h2>
+          <div className="w-20 h-1.5 bg-yellow mx-auto rounded-full mb-6"></div>
           
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-            We are currently curating an incredible lineup of visionary founders, industry pioneers, and policymakers who are shaping the future of Botswana's economy.
+          <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            Meet the visionary leaders, keynotes, and industry pioneers taking the stage at Startup Summit Botswana 2026.
           </p>
-          
-          <div className="bg-white p-8 md:p-10 rounded-3xl shadow-lg border border-gray-100 max-w-2xl mx-auto">
-            <h3 className="text-2xl font-bold mb-3">Want to share your expertise?</h3>
-            <p className="text-gray-500 mb-8">
-              We are looking for thought leaders to lead keynotes, fireside chats, and panel discussions.
-            </p>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-light text-white font-bold py-4 px-8 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-md group cursor-pointer"
-            >
-              Apply to Speak
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
         </motion.div>
-      </div>
 
-      <SpeakerModal 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+        {/* Speakers Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 max-w-5xl mx-auto">
+          {SPEAKERS.map((speaker, index) => (
+            <motion.div
+              key={speaker.id}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.5, delay: index * 0.15, ease: [0.16, 1, 0.3, 1] }}
+              className={`group relative bg-white rounded-3xl overflow-hidden shadow-xl border transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl flex flex-col ${
+                speaker.isKeynote 
+                  ? 'border-yellow/50 ring-1 ring-yellow/30' 
+                  : 'border-gray-100'
+              }`}
+            >
+              {/* Speaker Header Image Banner */}
+              <div className="relative h-80 sm:h-96 overflow-hidden bg-primary">
+                <img 
+                  src={speaker.image} 
+                  alt={speaker.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/20 to-transparent"></div>
+                
+                {/* Badge Overlay */}
+                <div className="absolute top-4 left-4 z-10">
+                  {speaker.isKeynote ? (
+                    <span className="inline-flex items-center gap-1.5 bg-yellow text-primary font-extrabold text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg border border-yellow-300">
+                      <Sparkles className="w-3.5 h-3.5 fill-primary" />
+                      Keynote Speaker
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 bg-accent text-white font-extrabold text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg border border-accent/30">
+                      <Award className="w-3.5 h-3.5" />
+                      Speaker
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Speaker Details */}
+              <div className="p-8 flex-1 flex flex-col justify-between -mt-8 relative z-20 bg-white rounded-t-3xl">
+                <div>
+                  <h3 className="text-2xl md:text-3xl font-display font-bold text-primary mb-2 group-hover:text-accent transition-colors">
+                    {speaker.name}
+                  </h3>
+
+                  <div className="flex items-start gap-2.5 text-gray-700 font-semibold mb-3 leading-snug">
+                    <Briefcase className="w-4 h-4 text-accent shrink-0 mt-1" />
+                    <span>{speaker.role}</span>
+                  </div>
+
+                  {speaker.company && (
+                    <div className="inline-flex items-center gap-2 bg-gray-100 text-primary font-bold text-sm px-3 py-1 rounded-lg mb-4">
+                      <Building2 className="w-4 h-4 text-accent" />
+                      <span>{speaker.company}</span>
+                    </div>
+                  )}
+
+                  <p className="text-gray-600 text-sm leading-relaxed mt-2 text-justify">
+                    {speaker.bio}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
