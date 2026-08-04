@@ -11,6 +11,7 @@ interface Speaker {
   badge: 'Keynote Speaker' | 'Speaker';
   isKeynote?: boolean;
   image: string;
+  fallbackImage: string;
   bio: string;
 }
 
@@ -22,6 +23,7 @@ const SPEAKERS: Speaker[] = [
     badge: 'Keynote Speaker',
     isKeynote: true,
     image: drFarzamImg,
+    fallbackImage: '/images/dr_farzam_kamalabadi.jpg',
     bio: 'Farzam Kamalabadi is a Persian-American global strategist, entrepreneur, and Founder & Chairman of Future Trends Group. Over the past three decades, he has advised governments, business leaders, and institutions across China, the Middle East, Africa, Europe, and the United States on economic development, cross-border investment, energy, finance, and emerging technologies. Widely recognized for his extensive engagement with China and international markets, he has contributed to major trade, investment, and strategic initiatives. Today, his work is focused on advancing Africa\'s economic transformation through innovative development models designed to promote sustainable growth, international cooperation, poverty reduction, and shared global prosperity.'
   },
   {
@@ -32,6 +34,7 @@ const SPEAKERS: Speaker[] = [
     badge: 'Speaker',
     isKeynote: false,
     image: gaoneImg,
+    fallbackImage: '/images/gaone_kabo_edzani.jpg',
     bio: 'Leading entrepreneurial innovation and business excellence in Botswana\'s private sector, championing local startup development and sustainable enterprise growth.'
   }
 ];
@@ -88,6 +91,12 @@ export function Speakers() {
                   src={speaker.image} 
                   alt={speaker.name}
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (target.src !== window.location.origin + speaker.fallbackImage) {
+                      target.src = speaker.fallbackImage;
+                    }
+                  }}
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/20 to-transparent"></div>
