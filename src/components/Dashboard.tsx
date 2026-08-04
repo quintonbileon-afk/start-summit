@@ -7,13 +7,15 @@ import {
   Users, Briefcase, Award, Search, Filter, Download, Trash2, 
   ExternalLink, Calendar, MapPin, Mail, Phone, ChevronRight, X,
   ArrowLeft, RefreshCw, Layers, CheckCircle2, AlertTriangle, Play, LogOut,
-  Ticket, Check, QrCode, UserCheck, AlertCircle, Laptop, Tablet, Mic
+  Ticket, Check, QrCode, UserCheck, AlertCircle, Laptop, Tablet, Mic,
+  FileText, FileSpreadsheet, Printer
 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, query, orderBy, getDocs, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { RegistrationData } from '../types';
 import { AdminLogin } from './AdminLogin';
+import { generateRegistrationsPDF } from '../lib/pdfExport';
 
 interface FirebaseRegistration extends RegistrationData {
   id: string;
@@ -55,6 +57,32 @@ export function Dashboard({ onBack }: DashboardProps) {
   const [generatedTicketReg, setGeneratedTicketReg] = useState<FirebaseRegistration | null>(null);
   const [isExportingTicket, setIsExportingTicket] = useState(false);
   const ticketPrintRef = useRef<HTMLDivElement>(null);
+
+  // PDF Export States
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [pdfExportMode, setPdfExportMode] = useState<'full' | 'table'>('full');
+  const [pdfExportScope, setPdfExportScope] = useState<'all' | 'filtered'>('all');
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  // Trigger PDF Generation
+  const handleExportPDF = () => {
+    setIsExportingPdf(true);
+    setTimeout(() => {
+      try {
+        const dataToExport = pdfExportScope === 'filtered' ? filteredRegs : registrations;
+        generateRegistrationsPDF(dataToExport, {
+          mode: pdfExportMode,
+          scope: pdfExportScope,
+        });
+      } catch (err) {
+        console.error("PDF Export Error:", err);
+        alert("Failed to export PDF. Please try again.");
+      } finally {
+        setIsExportingPdf(false);
+        setIsPdfModalOpen(false);
+      }
+    }, 150);
+  };
 
   // Load email logs in real-time
   useEffect(() => {
@@ -478,15 +506,30 @@ export function Dashboard({ onBack }: DashboardProps) {
               </button>
             )}
 
-            {/* CSV Export */}
-            <button
-              onClick={handleExportCSV}
-              disabled={registrations.length === 0}
-              className="flex items-center gap-2 bg-accent hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-accent/15 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
+            {/* Export Actions Group */}
+            <div className="flex items-center gap-2">
+              {/* CSV Export */}
+              <button
+                onClick={handleExportCSV}
+                disabled={registrations.length === 0}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/15 border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                title="Export raw data to CSV file"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                <span className="hidden sm:inline">Export</span> CSV
+              </button>
+
+              {/* PDF Export */}
+              <button
+                onClick={() => setIsPdfModalOpen(true)}
+                disabled={registrations.length === 0}
+                className="flex items-center gap-2 bg-gradient-to-r from-accent to-red-600 hover:from-accent/90 hover:to-red-600/90 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-accent/20 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                title="Export clean formatted registration PDF report"
+              >
+                <FileText className="w-4 h-4" />
+                Export PDF
+              </button>
+            </div>
 
             {/* Logout */}
             <button
@@ -1982,6 +2025,180 @@ export function Dashboard({ onBack }: DashboardProps) {
                 >
                   <QrCode className="w-4 h-4 text-accent" />
                   Print Pass
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PDF Export Options Modal */}
+      <AnimatePresence>
+        {isPdfModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="bg-[#0f172a] border border-white/10 text-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative overflow-hidden"
+            >
+              {/* Background Glow */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-accent/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setIsPdfModalOpen(false)}
+                className="absolute top-6 right-6 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-accent/20 border border-accent/30 text-accent rounded-2xl flex items-center justify-center shrink-0">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl sm:text-2xl text-white">
+                    Export Registration PDF
+                  </h3>
+                  <p className="text-xs text-white/60">
+                    Generate an official PDF document with complete registration records.
+                  </p>
+                </div>
+              </div>
+
+              {/* Form Options */}
+              <div className="space-y-6">
+                {/* 1. Layout Mode Selection */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-3">
+                    Select Document Layout
+                  </label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {/* Full Detailed Profiles Mode */}
+                    <label
+                      onClick={() => setPdfExportMode('full')}
+                      className={`flex items-start gap-3.5 p-4 rounded-2xl border cursor-pointer transition-all ${
+                        pdfExportMode === 'full'
+                          ? 'bg-accent/10 border-accent text-white ring-1 ring-accent/50'
+                          : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="pdfMode"
+                        checked={pdfExportMode === 'full'}
+                        onChange={() => setPdfExportMode('full')}
+                        className="mt-1 accent-red-500"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-white">Full Detailed Profiles</span>
+                          <span className="bg-yellow/20 text-yellow border border-yellow/30 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase font-mono">
+                            Complete Info
+                          </span>
+                        </div>
+                        <p className="text-xs text-white/60 mt-1 leading-relaxed">
+                          Formatted cards with 100% of data fields: full contact details, organization, physical address, exhibitor products & website, partner goals, speaker bio, payment references, and check-in timestamps.
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Executive Table Mode */}
+                    <label
+                      onClick={() => setPdfExportMode('table')}
+                      className={`flex items-start gap-3.5 p-4 rounded-2xl border cursor-pointer transition-all ${
+                        pdfExportMode === 'table'
+                          ? 'bg-accent/10 border-accent text-white ring-1 ring-accent/50'
+                          : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="pdfMode"
+                        checked={pdfExportMode === 'table'}
+                        onChange={() => setPdfExportMode('table')}
+                        className="mt-1 accent-red-500"
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-white">Executive Master Table</span>
+                          <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase font-mono">
+                            Landscape Table
+                          </span>
+                        </div>
+                        <p className="text-xs text-white/60 mt-1 leading-relaxed">
+                          Multi-page landscape overview table for quick executive scanning, list auditing, and gate verification printing.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 2. Scope Selection */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-white/60 mb-3">
+                    Export Scope
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPdfExportScope('all')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        pdfExportScope === 'all'
+                          ? 'bg-white/15 border-white/30 text-white font-bold'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="text-xs text-white/50 uppercase font-mono">All Registrations</div>
+                      <div className="text-lg font-bold text-white mt-0.5">{registrations.length} Records</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setPdfExportScope('filtered')}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        pdfExportScope === 'filtered'
+                          ? 'bg-white/15 border-white/30 text-white font-bold'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="text-xs text-white/50 uppercase font-mono">Filtered View</div>
+                      <div className="text-lg font-bold text-accent mt-0.5">{filteredRegs.length} Records</div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer Actions */}
+              <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsPdfModalOpen(false)}
+                  className="px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  disabled={isExportingPdf || (pdfExportScope === 'filtered' && filteredRegs.length === 0)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-accent to-red-600 hover:from-accent/90 hover:to-red-600/90 text-white font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-lg shadow-accent/25 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Generating PDF...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Download PDF Report
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

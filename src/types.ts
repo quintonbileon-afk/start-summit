@@ -29,6 +29,7 @@ export interface RegistrationData {
   checkedInAt?: any;
 
   // Manual Payment Fields
+  submittedAt?: any;
   paymentStatus?: 'pending' | 'verified' | 'free';
   paymentReference?: string;
   paymentSubmittedAt?: any;
