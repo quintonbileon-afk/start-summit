@@ -1,7 +1,9 @@
 import { motion } from 'motion/react';
 import { Mic, Sparkles, Award, Building2, Briefcase } from 'lucide-react';
+
 import drFarzamImg from '../assets/images/dr_farzam_kamalabadi.jpg';
 import gaoneImg from '../assets/images/gaone_kabo_edzani.jpg';
+import tebogoImg from '../assets/images/tebogo1.png';
 
 interface Speaker {
   id: string;
@@ -36,6 +38,17 @@ const SPEAKERS: Speaker[] = [
     image: gaoneImg,
     fallbackImage: '/images/gaone_kabo_edzani.jpg',
     bio: 'Leading entrepreneurial innovation and business excellence in Botswana\'s private sector, championing local startup development and sustainable enterprise growth.'
+  },
+  {
+    id: 'tebogo-mogaleemang',
+    name: 'Tebogo Mogaleemang',
+    role: 'Managing Director',
+    company: 'Spectrum Analytics',
+    badge: 'Speaker',
+    isKeynote: false,
+    image: tebogoImg,
+    fallbackImage: '/tebogo1.png',
+    bio: 'Driving data-driven insights and innovation as the Managing Director of Spectrum Analytics, empowering businesses to harness the power of data for strategic growth.'
   }
 ];
 
@@ -71,7 +84,7 @@ export function Speakers() {
         </motion.div>
 
         {/* Speakers Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10 max-w-7xl mx-auto">
           {SPEAKERS.map((speaker, index) => (
             <motion.div
               key={speaker.id}
@@ -86,7 +99,11 @@ export function Speakers() {
               }`}
             >
               {/* Speaker Header Image Banner */}
-              <div className="relative h-80 sm:h-96 overflow-hidden bg-primary">
+              <div className="relative h-80 sm:h-96 overflow-hidden bg-[#0A1322]">
+                {/* Executive Studio Spotlight Background Backdrop */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,_#1e3b8a_0%,_#0f1b2b_65%,_#070d17_100%)]"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,_rgba(59,130,246,0.3)_0%,_transparent_65%)]"></div>
+
                 <img 
                   src={speaker.image} 
                   alt={speaker.name}
@@ -97,9 +114,9 @@ export function Speakers() {
                       target.src = speaker.fallbackImage;
                     }
                   }}
-                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                  className="relative z-10 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/20 to-transparent"></div>
+                <div className="absolute inset-0 z-10 bg-gradient-to-t from-primary via-primary/20 to-transparent"></div>
                 
                 {/* Badge Overlay */}
                 <div className="absolute top-4 left-4 z-10">
